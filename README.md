@@ -35,10 +35,11 @@ Our differentiating factors:
   - 38 comprehensive unit tests
 
 ### Testing
-- **108/108 tests passing** ✅
-- **100% code coverage** on all implementations
+- **127/127 tests passing** ✅
+- **98.59% code coverage** on all implementations
 - Comprehensive test suites for algorithms and utilities
 - Distributed scenarios tested
+- Express middleware integration tests
 
 ### Configuration
 - ✅ JSON-based configuration system
@@ -53,6 +54,17 @@ Our differentiating factors:
 - ✅ Atomic operations preventing race conditions
 - ✅ Health checks and graceful degradation
 - ✅ Support for multiple Redis client libraries
+
+### Express.js Integration
+- ✅ Production-ready middleware for Express applications
+- ✅ In-memory and Redis-backed implementations
+- ✅ Helper functions (globalRateLimit, perIpRateLimit, perUserRateLimit, perEndpointRateLimit)
+- ✅ Cost-based token consumption
+- ✅ Custom error handlers and monitoring callbacks
+- ✅ Standard RateLimit headers (draft spec) + legacy X-RateLimit headers
+- ✅ 18 integration tests
+- ✅ Complete example application with 8 real-world scenarios
+- 📚 **[Express Middleware Guide →](EXPRESS_MIDDLEWARE_GUIDE.md)**
 
 ---
 
@@ -117,6 +129,59 @@ Interactive playground to test and visualize different rate limiting algorithms 
 - **[Setup Guide](docs/guides/SETUP.md)** - Installation instructions
 - **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
 - **[Best Practices](docs/BEST_PRACTICES.md)** - Production deployment guide
+- **[Redis Distributed Guide](REDIS_DISTRIBUTED.md)** - Multi-server deployments with Redis
+- **[Express Middleware Guide](EXPRESS_MIDDLEWARE_GUIDE.md)** - Express.js integration
+
+## 🚀 Framework Integration
+
+### Express.js
+
+Quick example with Express:
+
+```javascript
+const express = require('express');
+const { perIpRateLimit } = require('./src/middleware/express/token-bucket-middleware');
+
+const app = express();
+
+// Apply rate limiting to all routes
+app.use(perIpRateLimit({
+  capacity: 100,
+  refillRate: 10,
+  refillInterval: 1000 // 10 requests per second per IP
+}));
+
+app.get('/api/data', (req, res) => {
+  res.json({ 
+    message: 'Success!',
+    remaining: req.rateLimit.remaining 
+  });
+});
+
+app.listen(3000);
+```
+
+**[See full Express guide →](EXPRESS_MIDDLEWARE_GUIDE.md)**
+
+### Redis (Distributed)
+
+For multi-server deployments:
+
+```javascript
+const Redis = require('ioredis');
+const { tokenBucketMiddleware } = require('./src/middleware/express/redis-token-bucket-middleware');
+
+const redis = new Redis();
+
+app.use(tokenBucketMiddleware({
+  redis,
+  capacity: 100,
+  refillRate: 10,
+  refillInterval: 1000
+}));
+```
+
+**[See full Redis guide →](REDIS_DISTRIBUTED.md)**
 
 ## 🤝 Contributing
 
