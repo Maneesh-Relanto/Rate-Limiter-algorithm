@@ -1,0 +1,124 @@
+/**
+ * Token Bucket Rate Limiting Algorithm
+ * 
+ * Tokens are added to a bucket at a constant rate (refill rate).
+ * Each request consumes one token. If no tokens are available, the request is rejected.
+ * The bucket has a maximum capacity to prevent unlimited accumulation.
+ * 
+ * @example
+ * const limiter = new TokenBucket(100, 10); // 100 capacity, 10 tokens/sec
+ * if (limiter.allowRequest()) {
+ *   // Process request
+ * } else {
+ *   // Reject request
+ * }
+ */
+class TokenBucket {
+  /**
+   * Creates a new Token Bucket rate limiter
+   * 
+   * @param {number} capacity - Maximum number of tokens the bucket can hold
+   * @param {number} refillRate - Number of tokens added per second
+   * @throws {Error} If capacity or refillRate are invalid
+   */
+  constructor(capacity, refillRate) {
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+      throw new Error('Capacity must be a positive number');
+    }
+    if (!Number.isFinite(refillRate) || refillRate <= 0) {
+      throw new Error('Refill rate must be a positive number');
+    }
+
+    this.capacity = capacity;
+    this.tokens = capacity; // Start with full bucket
+    this.refillRate = refillRate;
+    this.lastRefill = Date.now();
+  }
+
+  /**
+   * Attempts to consume a token for the request
+   * 
+   * @param {number} [tokensRequired=1] - Number of tokens to consume
+   * @returns {boolean} True if request is allowed, false otherwise
+   */
+  allowRequest(tokensRequired = 1) {
+    if (!Number.isFinite(tokensRequired) || tokensRequired <= 0) {
+      throw new Error('Tokens required must be a positive number');
+    }
+
+    this._refill();
+
+    if (this.tokens >= tokensRequired) {
+      this.tokens -= tokensRequired;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Refills tokens based on elapsed time since last refill
+   * @private
+   */
+  _refill() {
+    const now = Date.now();
+    const elapsedSeconds = (now - this.lastRefill) / 1000;
+    const tokensToAdd = elapsedSeconds * this.refillRate;
+
+    // Add tokens but don't exceed capacity
+    this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+  }
+
+  /**
+   * Gets the current number of available tokens
+   * 
+   * @returns {number} Current token count
+   */
+  getAvailableTokens() {
+    this._refill();
+    return Math.floor(this.tokens);
+  }
+
+  /**
+   * Gets the time in milliseconds until next token is available
+   * 
+   * @returns {number} Milliseconds until next token (0 if tokens available)
+   */
+  getTimeUntilNextToken() {
+    this._refill();
+
+    if (this.tokens >= 1) {
+      return 0;
+    }
+
+    const tokensNeeded = 1 - this.tokens;
+    const timeNeeded = (tokensNeeded / this.refillRate) * 1000;
+    return Math.ceil(timeNeeded);
+  }
+
+  /**
+   * Resets the bucket to full capacity
+   */
+  reset() {
+    this.tokens = this.capacity;
+    this.lastRefill = Date.now();
+  }
+
+  /**
+   * Gets the current state of the rate limiter
+   * 
+   * @returns {Object} Current state including capacity, tokens, and rate
+   */
+  getState() {
+    this._refill();
+    return {
+      capacity: this.capacity,
+      availableTokens: Math.floor(this.tokens),
+      refillRate: this.refillRate,
+      utilizationPercent: ((this.capacity - this.tokens) / this.capacity) * 100
+    };
+  }
+}
+
+module.exports = TokenBucket;

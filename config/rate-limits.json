@@ -1,0 +1,132 @@
+{
+  "rateLimits": {
+    "default": {
+      "capacity": 100,
+      "refillRate": 10,
+      "description": "Default rate limit: 100 requests with 10 per second refill"
+    },
+    
+    "strict": {
+      "capacity": 10,
+      "refillRate": 1,
+      "description": "Strict limit for sensitive endpoints"
+    },
+    
+    "api": {
+      "free": {
+        "capacity": 100,
+        "refillRate": 1.67,
+        "description": "Free tier: 100 requests per minute"
+      },
+      "pro": {
+        "capacity": 1000,
+        "refillRate": 16.67,
+        "description": "Pro tier: 1000 requests per minute"
+      },
+      "enterprise": {
+        "capacity": 10000,
+        "refillRate": 166.67,
+        "description": "Enterprise tier: 10000 requests per minute"
+      }
+    },
+    
+    "authentication": {
+      "login": {
+        "capacity": 5,
+        "refillRate": 0.083,
+        "description": "Login attempts: 5 per hour"
+      },
+      "passwordReset": {
+        "capacity": 3,
+        "refillRate": 0.017,
+        "description": "Password reset: 3 per hour"
+      },
+      "registration": {
+        "capacity": 10,
+        "refillRate": 0.167,
+        "description": "Registration: 10 per hour"
+      }
+    },
+    
+    "operations": {
+      "read": {
+        "capacity": 1000,
+        "refillRate": 100,
+        "cost": 1,
+        "description": "Read operations: 1000/min, 1 token per operation"
+      },
+      "write": {
+        "capacity": 500,
+        "refillRate": 50,
+        "cost": 5,
+        "description": "Write operations: 500/min, 5 tokens per operation"
+      },
+      "bulkOperation": {
+        "capacity": 100,
+        "refillRate": 10,
+        "cost": 10,
+        "description": "Bulk operations: 100/min, 10 tokens per operation"
+      },
+      "heavyQuery": {
+        "capacity": 50,
+        "refillRate": 5,
+        "cost": 20,
+        "description": "Heavy queries: 50/min, 20 tokens per operation"
+      }
+    },
+    
+    "fileUpload": {
+      "small": {
+        "capacity": 100,
+        "refillRate": 10,
+        "cost": 1,
+        "description": "Small files (<1MB): 100/min"
+      },
+      "medium": {
+        "capacity": 50,
+        "refillRate": 5,
+        "cost": 5,
+        "description": "Medium files (1-10MB): 50/min"
+      },
+      "large": {
+        "capacity": 10,
+        "refillRate": 1,
+        "cost": 10,
+        "description": "Large files (10-100MB): 10/min"
+      }
+    },
+    
+    "webhook": {
+      "capacity": 1000,
+      "refillRate": 16.67,
+      "description": "Webhook endpoints: 1000 per minute"
+    },
+    
+    "publicApi": {
+      "capacity": 60,
+      "refillRate": 1,
+      "description": "Public API: 60 requests per minute"
+    },
+    
+    "internalApi": {
+      "capacity": 10000,
+      "refillRate": 166.67,
+      "description": "Internal API: 10000 requests per minute"
+    }
+  },
+  
+  "environment": {
+    "development": {
+      "multiplier": 2.0,
+      "description": "Development: 2x rate limits for testing"
+    },
+    "staging": {
+      "multiplier": 1.5,
+      "description": "Staging: 1.5x rate limits"
+    },
+    "production": {
+      "multiplier": 1.0,
+      "description": "Production: Normal rate limits"
+    }
+  }
+}

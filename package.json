@@ -1,0 +1,55 @@
+{
+  "name": "@rate-limiter/core",
+  "version": "0.1.0",
+  "description": "Comprehensive, well-documented rate limiting algorithms with interactive learning tools",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/ tests/ examples/",
+    "lint:fix": "eslint src/ tests/ examples/ --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "example:token-bucket": "node examples/javascript/token-bucket-example.js",
+    "example:config": "node examples/javascript/config-based-example.js"
+  },
+  "keywords": [
+    "rate-limiting",
+    "rate-limiter",
+    "throttle",
+    "api",
+    "token-bucket",
+    "leaky-bucket",
+    "sliding-window"
+  ],
+  "author": "Rate Limiter Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/rate-limiter.git"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/**/*.test.js"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      }
+    }
+  }
+}
