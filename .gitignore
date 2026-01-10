@@ -1,0 +1,52 @@
+# Confidential - Internal strategies, plans, and discussions
+confidential/
+
+# Dependencies
+node_modules/
+vendor/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+target/
+out/
+bin/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.log
+
+# Test coverage
+coverage/
+.coverage
+*.cover
+.pytest_cache/
+.nyc_output/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Package manager locks (optional - can be committed)
+# package-lock.json
+# yarn.lock
+# Pipfile.lock
