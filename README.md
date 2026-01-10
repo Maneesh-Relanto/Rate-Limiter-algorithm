@@ -131,6 +131,7 @@ Interactive playground to test and visualize different rate limiting algorithms 
 - **[Best Practices](docs/BEST_PRACTICES.md)** - Production deployment guide
 - **[Redis Distributed Guide](REDIS_DISTRIBUTED.md)** - Multi-server deployments with Redis
 - **[Express Middleware Guide](EXPRESS_MIDDLEWARE_GUIDE.md)** - Express.js integration
+- **[State Persistence Guide](docs/STATE_PERSISTENCE.md)** - Save/restore limiter state for crash recovery
 
 ## 🚀 Framework Integration
 

@@ -78,15 +78,14 @@ class RedisTokenBucket {
       
       -- Update state
       redis.call('HMSET', key, 'tokens', tokens, 'lastRefill', now)
-      redis.call('EXPIRE', key, ttl)
       
-      -- Return result: allowed, tokens, timeUntilNextToken
-      local timeUntilNextToken = 0
-      if tokens < tokensRequired then
-        timeUntilNextToken = ((tokensRequired - tokens) / refillRate) * 1000
+      -- Set TTL
+      if ttl > 0 then
+        redis.call('EXPIRE', key, ttl)
       end
       
-      return {allowed, tokens, timeUntilNextToken}
+      -- Return: allowed, current tokens, lastRefill
+      return {allowed, tokens, now}
     `;
   }
 
@@ -182,6 +181,7 @@ class RedisTokenBucket {
       return {
         capacity: this.capacity,
         availableTokens: Math.floor(result[1]),
+        lastRefill: result[2],
         refillRate: this.refillRate,
         key: this.key
       };
@@ -190,6 +190,7 @@ class RedisTokenBucket {
       return {
         capacity: this.capacity,
         availableTokens: 0,
+        lastRefill: Date.now(),
         refillRate: this.refillRate,
         key: this.key,
         error: error.message
@@ -264,6 +265,198 @@ class RedisTokenBucket {
     } catch (error) {
       console.error('Redis health check failed:', error.message);
       return false;
+    }
+  }
+
+  /**
+   * Exports the bucket configuration to JSON
+   * Note: For Redis buckets, the actual state is stored in Redis.
+   * This method exports the configuration needed to reconnect to the same bucket.
+   * 
+   * @returns {Object} Serializable configuration object
+   * 
+   * @example
+   * const bucket = new RedisTokenBucket(redis, 'user:123', 100, 10);
+   * const config = bucket.toJSON();
+   * // Save config to disk or database
+   * fs.writeFileSync('bucket-config.json', JSON.stringify(config));
+   */
+  toJSON() {
+    return {
+      version: 1,
+      type: 'RedisTokenBucket',
+      key: this.key,
+      capacity: this.capacity,
+      refillRate: this.refillRate,
+      ttl: this.ttl,
+      timestamp: Date.now(),
+      metadata: {
+        serializedAt: new Date().toISOString(),
+        className: 'RedisTokenBucket',
+        note: 'State is stored in Redis. This is configuration only.'
+      }
+    };
+  }
+
+  /**
+   * Creates a RedisTokenBucket instance from JSON configuration
+   * Note: This restores the configuration, not the state. The actual state is in Redis.
+   * 
+   * @param {Object} redis - Redis client instance
+   * @param {Object} json - Serialized configuration from toJSON()
+   * @returns {RedisTokenBucket} New instance connected to the same Redis bucket
+   * @throws {Error} If json is invalid or missing required fields
+   * 
+   * @example
+   * const config = JSON.parse(fs.readFileSync('bucket-config.json'));
+   * const redis = new Redis();
+   * const bucket = RedisTokenBucket.fromJSON(redis, config);
+   * // bucket reconnects to the same Redis state
+   */
+  static fromJSON(redis, json) {
+    // Validate input
+    if (!redis) {
+      throw new Error('Invalid Redis client');
+    }
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      throw new Error('Invalid JSON: must be an object');
+    }
+
+    // Check for required fields
+    const requiredFields = ['key', 'capacity', 'refillRate'];
+    const missingFields = requiredFields.filter(field => !(field in json));
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    // Validate field types and values
+    if (typeof json.key !== 'string' || json.key.length === 0) {
+      throw new Error('Invalid key: must be a non-empty string');
+    }
+    if (!Number.isFinite(json.capacity) || json.capacity <= 0) {
+      throw new Error('Invalid capacity: must be a positive number');
+    }
+    if (!Number.isFinite(json.refillRate) || json.refillRate <= 0) {
+      throw new Error('Invalid refillRate: must be a positive number');
+    }
+
+    // Create instance with optional TTL
+    const options = json.ttl ? { ttl: json.ttl } : undefined;
+    return new RedisTokenBucket(redis, json.key, json.capacity, json.refillRate, options);
+  }
+
+  /**
+   * Exports current state from Redis to a portable format
+   * Unlike toJSON(), this fetches the actual state from Redis
+   * 
+   * @returns {Promise<Object>} Complete state including configuration and current tokens
+   * 
+   * @example
+   * const bucket = new RedisTokenBucket(redis, 'user:123', 100, 10);
+   * const snapshot = await bucket.exportState();
+   * // Save complete state
+   * fs.writeFileSync('state.json', JSON.stringify(snapshot));
+   */
+  async exportState() {
+    try {
+      const state = await this.getState();
+      return {
+        version: 1,
+        type: 'RedisTokenBucket',
+        key: this.key,
+        capacity: this.capacity,
+        tokens: state.availableTokens,
+        refillRate: this.refillRate,
+        lastRefill: state.lastRefill,
+        ttl: this.ttl,
+        timestamp: Date.now(),
+        metadata: {
+          serializedAt: new Date().toISOString(),
+          className: 'RedisTokenBucket'
+        }
+      };
+    } catch (error) {
+      console.error('Redis error in exportState:', error.message);
+      // Return configuration even if state fetch fails
+      return {
+        ...this.toJSON(),
+        error: error.message,
+        tokens: null,
+        lastRefill: null
+      };
+    }
+  }
+
+  /**
+   * Imports state into Redis from an exported snapshot
+   * This can restore a bucket to a previous state
+   * 
+   * @param {Object} snapshot - State exported from exportState()
+   * @returns {Promise<void>}
+   * @throws {Error} If snapshot is invalid
+   * 
+   * @example
+   * const snapshot = JSON.parse(fs.readFileSync('state.json'));
+   * const redis = new Redis();
+   * const bucket = new RedisTokenBucket(redis, snapshot.key, snapshot.capacity, snapshot.refillRate);
+   * await bucket.importState(snapshot);
+   * // Bucket now has the restored state
+   */
+  async importState(snapshot) {
+    // Validate input
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+      throw new Error('Invalid snapshot: must be an object');
+    }
+
+    // Check for required fields
+    const requiredFields = ['capacity', 'tokens', 'refillRate', 'lastRefill'];
+    const missingFields = requiredFields.filter(field => !(field in snapshot));
+    
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields in snapshot: ${missingFields.join(', ')}`);
+    }
+
+    // Validate field types and values
+    if (!Number.isFinite(snapshot.capacity) || snapshot.capacity <= 0) {
+      throw new Error('Invalid capacity in snapshot: must be a positive number');
+    }
+
+    if (!Number.isFinite(snapshot.refillRate) || snapshot.refillRate <= 0) {
+      throw new Error('Invalid refillRate in snapshot: must be a positive number');
+    }
+
+    if (!Number.isFinite(snapshot.tokens) || snapshot.tokens < 0) {
+      throw new Error('Invalid tokens in snapshot: must be a non-negative number');
+    }
+
+    if (!Number.isFinite(snapshot.lastRefill) || snapshot.lastRefill <= 0) {
+      throw new Error('Invalid lastRefill in snapshot: must be a positive timestamp');
+    }
+
+    if (snapshot.tokens > snapshot.capacity) {
+      throw new Error(`Invalid snapshot: tokens (${snapshot.tokens}) cannot exceed capacity (${snapshot.capacity})`);
+    }
+
+    try {
+      // Update bucket configuration
+      this.capacity = snapshot.capacity;
+      this.refillRate = snapshot.refillRate;
+
+      // Set state in Redis using multi/exec for atomicity
+      const multi = this.redis.multi();
+      multi.hset(this.key, 'tokens', snapshot.tokens.toString());
+      multi.hset(this.key, 'lastRefill', snapshot.lastRefill.toString());
+      
+      // Set TTL if configured
+      if (this.ttl > 0) {
+        multi.expire(this.key, this.ttl);
+      }
+      
+      await multi.exec();
+    } catch (error) {
+      console.error('Redis error in importState:', error.message);
+      throw error;
     }
   }
 }
