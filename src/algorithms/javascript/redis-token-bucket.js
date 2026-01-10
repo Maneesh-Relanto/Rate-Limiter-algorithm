@@ -262,6 +262,7 @@ class RedisTokenBucket {
       const result = await this.redis.ping();
       return result === 'PONG' || result === true;
     } catch (error) {
+      console.error('Redis health check failed:', error.message);
       return false;
     }
   }

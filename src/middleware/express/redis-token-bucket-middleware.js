@@ -19,6 +19,7 @@
  */
 
 const RedisTokenBucket = require('../../algorithms/javascript/redis-token-bucket');
+const { DEFAULT_HEADERS, DEFAULT_REDIS, DEFAULT_RATE_LIMITS, shouldSkipByDefault } = require('./defaults');
 
 /**
  * Create distributed rate limiting middleware for Express
@@ -51,18 +52,21 @@ function redisTokenBucketMiddleware(options = {}) {
     redis: options.redis,
     capacity: options.capacity,
     refillRate: options.refillRate,
-    prefix: options.prefix || 'rate_limit:',
-    ttl: options.ttl || 3600,
+    refillInterval: options.refillInterval || 1000,
+    prefix: options.prefix || DEFAULT_REDIS.keyPrefix,
+    ttl: options.ttl || DEFAULT_REDIS.ttl,
     keyGenerator: options.keyGenerator || ((req) => req.ip || 'global'),
     handler: options.handler || defaultHandler,
-    skip: options.skip || (() => false),
+    skip: options.skip || ((req) => shouldSkipByDefault(req, options.config)),
     headers: {
-      draft: options.headers?.draft ?? true
+      standard: options.headers?.standard ?? options.standardHeaders ?? DEFAULT_HEADERS.standardHeaders,
+      legacy: options.headers?.legacy ?? options.legacyHeaders ?? DEFAULT_HEADERS.legacyHeaders
     },
-    onLimitReached: options.onLimitReached || (() => {})
+    onLimitReached: options.onLimitReached || (() => {}),
+    cost: options.cost || 1
   };
 
-  // Store limiters per key (cache limiter instances)
+  // Store limiters per key  // Store limiters per key (cache limiter instances)
   const limiters = new Map();
 
   /**
@@ -98,7 +102,7 @@ function redisTokenBucketMiddleware(options = {}) {
       const limiter = getLimiter(key);
 
       // Determine token cost (can be set by route handler)
-      const tokenCost = req.rateLimit?.cost || 1;
+      const tokenCost = req.tokenCost || config.cost || 1;
 
       // Check if request is allowed
       const allowed = await limiter.allowRequest(tokenCost);
@@ -114,16 +118,18 @@ function redisTokenBucketMiddleware(options = {}) {
       };
 
       // Add rate limit headers
-      if (config.headers.draft) {
+      if (config.headers.standard) {
         res.setHeader('RateLimit-Limit', config.capacity);
         res.setHeader('RateLimit-Remaining', Math.max(0, Math.floor(availableTokens)));
         res.setHeader('RateLimit-Reset', Math.ceil(req.rateLimit.resetTime / 1000));
       }
 
       // Legacy headers for compatibility
-      res.setHeader('X-RateLimit-Limit', config.capacity);
-      res.setHeader('X-RateLimit-Remaining', Math.max(0, Math.floor(availableTokens)));
-      res.setHeader('X-RateLimit-Reset', Math.ceil(req.rateLimit.resetTime / 1000));
+      if (config.headers.legacy) {
+        res.setHeader('X-RateLimit-Limit', config.capacity);
+        res.setHeader('X-RateLimit-Remaining', Math.max(0, Math.floor(availableTokens)));
+        res.setHeader('X-RateLimit-Reset', Math.ceil(req.rateLimit.resetTime / 1000));
+      }
 
       if (allowed) {
         // Request allowed
@@ -164,18 +170,27 @@ function defaultHandler(req, res) {
  * 
  * @param {Object} options - Configuration options
  * @param {Function} options.getUserId - Function to extract user ID from request
+ * @param {boolean} options.fallbackToIp - Fall back to IP if no user ID (default: false)
  * @returns {Function} Express middleware
  */
 function perUserRateLimit(options = {}) {
   if (!options.getUserId) {
-    throw new Error('getUserId function is required');
+    throw new Error('getUserId function is required for perUserRateLimit');
   }
 
+  const defaults = DEFAULT_RATE_LIMITS.perUser;
+
   return redisTokenBucketMiddleware({
+    capacity: options.capacity || defaults.capacity,
+    refillRate: options.refillRate || defaults.refillRate,
+    refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
     keyGenerator: (req) => {
       const userId = options.getUserId(req);
-      return userId ? `user:${userId}` : `ip:${req.ip}`;
+      if (userId) {
+        return `user:${userId}`;
+      }
+      return options.fallbackToIp === false ? 'anonymous' : `ip:${req.ip}`;
     }
   });
 }
@@ -187,7 +202,12 @@ function perUserRateLimit(options = {}) {
  * @returns {Function} Express middleware
  */
 function perIpRateLimit(options = {}) {
+  const defaults = DEFAULT_RATE_LIMITS.perIp;
+
   return redisTokenBucketMiddleware({
+    capacity: options.capacity || defaults.capacity,
+    refillRate: options.refillRate || defaults.refillRate,
+    refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
     keyGenerator: (req) => `ip:${req.ip}`
   });
@@ -200,7 +220,12 @@ function perIpRateLimit(options = {}) {
  * @returns {Function} Express middleware
  */
 function perEndpointRateLimit(options = {}) {
+  const defaults = DEFAULT_RATE_LIMITS.perEndpoint;
+
   return redisTokenBucketMiddleware({
+    capacity: options.capacity || defaults.capacity,
+    refillRate: options.refillRate || defaults.refillRate,
+    refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
     keyGenerator: (req) => {
       const userId = options.getUserId?.(req) || req.ip;
@@ -216,7 +241,12 @@ function perEndpointRateLimit(options = {}) {
  * @returns {Function} Express middleware
  */
 function globalRateLimit(options = {}) {
+  const defaults = DEFAULT_RATE_LIMITS.global;
+
   return redisTokenBucketMiddleware({
+    capacity: options.capacity || defaults.capacity,
+    refillRate: options.refillRate || defaults.refillRate,
+    refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
     keyGenerator: () => 'global'
   });
@@ -226,13 +256,12 @@ function globalRateLimit(options = {}) {
  * Cost-based rate limiting helper
  * Sets token cost for the request based on operation type
  * 
- * @param {number} cost - Number of tokens this request costs
+ * @param {number|Function} cost - Number of tokens this request costs, or function that returns cost
  * @returns {Function} Express middleware
  */
 function setRequestCost(cost) {
   return function(req, res, next) {
-    req.rateLimit = req.rateLimit || {};
-    req.rateLimit.cost = cost;
+    req.tokenCost = typeof cost === 'function' ? cost(req) : cost;
     next();
   };
 }
@@ -254,6 +283,7 @@ function redisHealthCheck(options = {}) {
       const result = await options.redis.ping();
       req.redisHealthy = result === 'PONG' || result === true;
     } catch (error) {
+      console.error('Redis health check failed in middleware:', error.message);
       req.redisHealthy = false;
     }
     next();

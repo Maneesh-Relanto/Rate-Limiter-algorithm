@@ -7,8 +7,8 @@
  * - Runtime overrides
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 class ConfigManager {
   constructor(configPath = null) {
@@ -26,7 +26,7 @@ class ConfigManager {
       const configData = fs.readFileSync(this.configPath, 'utf8');
       return JSON.parse(configData);
     } catch (error) {
-      console.warn(`Warning: Could not load config from ${this.configPath}, using defaults`);
+      console.warn(`Warning: Could not load config from ${this.configPath}, using defaults. Error: ${error.message}`);
       return this._getDefaultConfig();
     }
   }
@@ -45,9 +45,9 @@ class ConfigManager {
         }
       },
       environment: {
-        development: { multiplier: 2.0 },
+        development: { multiplier: 2 },
         staging: { multiplier: 1.5 },
-        production: { multiplier: 1.0 }
+        production: { multiplier: 1 }
       }
     };
   }
@@ -92,7 +92,7 @@ class ConfigManager {
    */
   _getEnvironmentMultiplier() {
     const envConfig = this.config.environment[this.environment];
-    return envConfig ? envConfig.multiplier : 1.0;
+    return envConfig ? envConfig.multiplier : 1;
   }
 
   /**
@@ -113,9 +113,9 @@ class ConfigManager {
 
     if (process.env[capacityVar] && process.env[refillVar]) {
       return {
-        capacity: parseInt(process.env[capacityVar], 10),
-        refillRate: parseFloat(process.env[refillVar]),
-        cost: parseInt(process.env[costVar] || '1', 10),
+        capacity: Number.parseInt(process.env[capacityVar], 10),
+        refillRate: Number.parseFloat(process.env[refillVar]),
+        cost: Number.parseInt(process.env[costVar] || '1', 10),
         description: `Environment variable: ${envVar}`
       };
     }

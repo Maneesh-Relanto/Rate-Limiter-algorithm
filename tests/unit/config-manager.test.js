@@ -3,12 +3,12 @@
  * Testing configuration management, loading, environment variables, and error handling
  */
 
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const { ConfigManager, getConfigManager } = require('../../src/utils/config-manager');
 
 // Mock fs for testing error scenarios
-jest.mock('fs');
+jest.mock('node:fs');
 
 describe('ConfigManager', () => {
   let originalEnv;

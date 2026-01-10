@@ -341,7 +341,7 @@ describe('Express Token Bucket Middleware', () => {
       const middleware = setRequestCost(5);
       middleware(req, res, next);
 
-      expect(req.rateLimit.cost).toBe(5);
+      expect(req.tokenCost).toBe(5);
       expect(next).toHaveBeenCalled();
     });
   });
