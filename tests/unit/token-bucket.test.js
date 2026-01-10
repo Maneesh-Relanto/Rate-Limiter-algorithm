@@ -194,7 +194,9 @@ describe('TokenBucket', () => {
     it('should handle very large capacities', () => {
       const bucket = new TokenBucket(1000000, 1000);
       expect(bucket.allowRequest(500000)).toBe(true);
-      expect(bucket.getAvailableTokens()).toBe(500000);
+      // Allow for tiny refill during execution
+      expect(bucket.getAvailableTokens()).toBeGreaterThanOrEqual(500000);
+      expect(bucket.getAvailableTokens()).toBeLessThan(500010);
     });
 
     it('should handle rapid successive requests', () => {
