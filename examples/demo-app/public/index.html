@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiter Demo - Interactive Testing Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1>🚦 Rate Limiter Demo</h1>
+        <p class="subtitle">Interactive Testing Dashboard - @rate-limiter/core v0.1.0</p>
+        <div class="stats-bar">
+          <div class="stat">
+            <span class="stat-value" id="total-requests">0</span>
+            <span class="stat-label">Total Requests</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value success" id="allowed-requests">0</span>
+            <span class="stat-label">Allowed</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value error" id="blocked-requests">0</span>
+            <span class="stat-label">Blocked</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" id="success-rate">100%</span>
+            <span class="stat-label">Success Rate</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Left Panel: API Endpoints -->
+      <section class="panel endpoints-panel">
+        <div class="panel-header">
+          <h2>🎯 Test Endpoints</h2>
+          <button class="btn btn-small" onclick="loadEndpoints()">Refresh</button>
+        </div>
+        
+        <div class="endpoints-grid" id="endpoints-grid">
+          <!-- Dynamically loaded -->
+        </div>
+      </section>
+
+      <!-- Right Panel: Results & Monitoring -->
+      <section class="panel results-panel">
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('response')">Response</button>
+          <button class="tab" onclick="switchTab('metrics')">Metrics</button>
+          <button class="tab" onclick="switchTab('events')">Live Events</button>
+        </div>
+
+        <!-- Response Tab -->
+        <div id="response-tab" class="tab-content active">
+          <div class="response-container">
+            <div class="response-header">
+              <h3>Last Response</h3>
+              <span class="response-status" id="response-status">Ready</span>
+            </div>
+            <div class="rate-limit-info" id="rate-limit-info">
+              <div class="rate-limit-card">
+                <span class="label">Limit</span>
+                <span class="value" id="limit-value">-</span>
+              </div>
+              <div class="rate-limit-card">
+                <span class="label">Remaining</span>
+                <span class="value" id="remaining-value">-</span>
+              </div>
+              <div class="rate-limit-card">
+                <span class="label">Used</span>
+                <span class="value" id="used-value">-</span>
+              </div>
+              <div class="rate-limit-card">
+                <span class="label">Reset In</span>
+                <span class="value" id="reset-value">-</span>
+              </div>
+            </div>
+            <pre class="response-body" id="response-body">No requests made yet. Click an endpoint above to test!</pre>
+          </div>
+        </div>
+
+        <!-- Metrics Tab -->
+        <div id="metrics-tab" class="tab-content">
+          <div class="metrics-container">
+            <div class="chart-container">
+              <h3>Request Distribution</h3>
+              <canvas id="requests-chart"></canvas>
+            </div>
+            <div class="metrics-list" id="metrics-list">
+              <!-- Dynamically loaded -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Tab -->
+        <div id="events-tab" class="tab-content">
+          <div class="events-container">
+            <div class="events-header">
+              <h3>Live Request Events</h3>
+              <button class="btn btn-small" onclick="clearEvents()">Clear</button>
+            </div>
+            <div class="events-list" id="events-list">
+              <!-- Dynamically loaded -->
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Quick Actions -->
+    <section class="quick-actions">
+      <button class="btn btn-primary" onclick="runLoadTest()">🚀 Run Load Test (10 req/sec)</button>
+      <button class="btn btn-secondary" onclick="testAllEndpoints()">🔄 Test All Endpoints</button>
+      <button class="btn btn-danger" onclick="resetMetrics()">🗑️ Reset Metrics</button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>
+        Built with <strong>@rate-limiter/core</strong> | 
+        96.07% Test Coverage | 
+        228 Passing Tests | 
+        <a href="https://github.com/Maneesh-Relanto/rate-limiter" target="_blank">View on GitHub</a>
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
