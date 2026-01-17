@@ -121,17 +121,92 @@ rate-limiter/
 git clone https://github.com/Maneesh-Relanto/rate-limiter.git
 cd rate-limiter
 
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
 # See detailed setup guide
 # For documentation: see docs/guides/SETUP.md
 ```
 
-## 🎮 Try the Playground
+## 🎮 Interactive Demo Application
 
-Interactive playground to test and visualize different rate limiting algorithms in action!
+**Test and validate all rate limiting features with our comprehensive demo app!**
+
+The demo application provides an interactive web interface to test and visualize all rate limiting strategies in real-time. Perfect for understanding how different configurations behave under various load conditions.
+
+### 🚀 Launch the Demo
 
 ```bash
-# Coming soon - web and CLI playgrounds
+cd examples/demo-app
+node server.js
 ```
+
+Then open http://localhost:3000 in your browser.
+
+### ✨ What the Demo Validates
+
+The demo app comprehensively tests and validates:
+
+#### **1. Rate Limiting Strategies**
+- ✅ **Per-IP Rate Limiting** - Validates that each IP address gets its own token bucket
+- ✅ **Per-User Rate Limiting** - Confirms user-specific quotas work correctly
+- ✅ **Per-Endpoint Rate Limiting** - Tests endpoint-specific limits
+- ✅ **Global Rate Limiting** - Verifies shared bucket across all requests
+
+#### **2. Token Bucket Behavior**
+- ✅ **Token Refill Mechanics** - Validates tokens refill at correct intervals
+- ✅ **Capacity Limits** - Confirms requests are blocked when tokens exhausted
+- ✅ **Cost-Based Consumption** - Tests variable token costs (1 token vs 5 tokens)
+- ✅ **Fast/Slow Refill Rates** - Validates different refill strategies
+
+#### **3. HTTP Response Headers**
+- ✅ **X-RateLimit-Limit** - Total capacity header
+- ✅ **X-RateLimit-Remaining** - Remaining tokens header
+- ✅ **X-RateLimit-Reset** - Reset timestamp header
+- ✅ **Retry-After** - Proper retry timing when rate limited
+
+#### **4. Error Handling**
+- ✅ **429 Status Codes** - Correct HTTP status for rate limit exceeded
+- ✅ **Error Messages** - Clear error descriptions with retry information
+- ✅ **Graceful Degradation** - System behavior under stress
+
+#### **5. Performance & Concurrency**
+- ✅ **Load Testing** - Validates behavior under 10 req/sec burst
+- ✅ **Concurrent Requests** - Tests race conditions and atomic operations
+- ✅ **Memory Management** - Monitors resource usage under load
+- ✅ **Response Times** - Validates minimal performance overhead
+
+#### **6. Real-Time Monitoring**
+- ✅ **Request Statistics** - Tracks allowed vs blocked requests
+- ✅ **Success Rates** - Calculates and displays percentage metrics
+- ✅ **Live Event Stream** - Shows requests in real-time
+- ✅ **Per-Endpoint Distribution** - Breaks down metrics by endpoint
+
+### 📊 Demo Features
+
+- **8 Test Endpoints** with different rate limiting configurations
+- **Real-Time Dashboard** showing success/failure rates
+- **Load Testing Tool** to simulate high-traffic scenarios
+- **Interactive UI** for one-click endpoint testing
+- **Live Metrics** with auto-refresh every 2 seconds
+- **Event Streaming** to monitor all requests
+- **Visual Feedback** for rate limit status
+
+### 🎯 Test Scenarios Included
+
+1. **Basic Limiting** - 10 req/min per IP
+2. **Strict Limiting** - 3 requests with slow refill
+3. **Cost-Based (Light)** - 1 token per operation
+4. **Cost-Based (Heavy)** - 5 tokens per operation
+5. **Per-User Quotas** - Different limits per user
+6. **Global Limits** - Shared across all users
+7. **Fast Refill** - Quick token replenishment
+8. **Dynamic Costs** - Variable token consumption
+
+**[See full demo documentation →](examples/demo-app/README.md)**
 
 ## 📖 Documentation
 
@@ -174,6 +249,8 @@ app.listen(3000);
 ```
 
 **[See full Express guide →](EXPRESS_MIDDLEWARE_GUIDE.md)**
+
+**🎯 [Try the Interactive Demo App →](examples/demo-app/)** to see all these features in action!
 
 ### Redis (Distributed)
 

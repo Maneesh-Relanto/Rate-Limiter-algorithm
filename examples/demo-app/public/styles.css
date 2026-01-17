@@ -1,16 +1,16 @@
 /* Rate Limiter Demo - Styles */
 
 :root {
-  --primary: #3b82f6;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
-  --bg-dark: #0f172a;
-  --bg-medium: #1e293b;
-  --bg-light: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border: #475569;
+  --primary: #2563eb;
+  --success: #059669;
+  --error: #dc2626;
+  --warning: #d97706;
+  --bg-dark: #ffffff;
+  --bg-medium: #f8fafc;
+  --bg-light: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border: #cbd5e1;
 }
 
 * {
@@ -21,7 +21,7 @@
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: var(--bg-dark);
+  background: var(--bg-light);
   color: var(--text-primary);
   line-height: 1.6;
 }
@@ -34,11 +34,12 @@ body {
 
 /* Header */
 .header {
-  background: linear-gradient(135deg, var(--bg-medium) 0%, var(--bg-light) 100%);
+  background: linear-gradient(135deg, #ffffff 0%, var(--bg-medium) 100%);
   border-radius: 12px;
   padding: 30px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
 }
 
 .header-content h1 {
@@ -67,6 +68,8 @@ body {
   padding: 15px;
   background: var(--bg-dark);
   border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .stat-value {
@@ -106,10 +109,11 @@ body {
 }
 
 .panel {
-  background: var(--bg-medium);
+  background: var(--bg-dark);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border);
 }
 
 .panel-header {
@@ -134,17 +138,19 @@ body {
 }
 
 .endpoint-card {
-  background: var(--bg-dark);
+  background: var(--bg-medium);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 15px;
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .endpoint-card:hover {
   border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  background: var(--bg-dark);
 }
 
 .endpoint-header {
@@ -334,10 +340,11 @@ body {
 }
 
 .rate-limit-card {
-  background: var(--bg-dark);
+  background: var(--bg-medium);
   padding: 12px;
   border-radius: 6px;
   text-align: center;
+  border: 1px solid var(--border);
 }
 
 .rate-limit-card .label {
@@ -355,9 +362,11 @@ body {
 }
 
 .response-body {
-  background: var(--bg-dark);
+  background: var(--bg-medium);
   padding: 15px;
   border-radius: 6px;
+  border-left: 4px solid var(--border);
+  border: 1px solid var(--border);
   border-left: 4px solid var(--border);
   font-family: 'Courier New', monospace;
   font-size: 0.9rem;
@@ -398,8 +407,9 @@ body {
   grid-template-columns: 80px 30px 1fr 120px;
   gap: 10px;
   padding: 10px;
-  background: var(--bg-dark);
+  background: var(--bg-medium);
   border-radius: 6px;
+  border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   align-items: center;
 }
@@ -439,10 +449,11 @@ body {
 }
 
 .metric-item {
-  background: var(--bg-dark);
+  background: var(--bg-medium);
   padding: 15px;
   border-radius: 6px;
   margin-bottom: 10px;
+  border: 1px solid var(--border);
 }
 
 .metric-header {
@@ -519,7 +530,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-dark);
+  background: var(--bg-light);
 }
 
 ::-webkit-scrollbar-thumb {

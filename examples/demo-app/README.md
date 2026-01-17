@@ -41,6 +41,26 @@ node server.js
 # Visit: http://localhost:3000
 ```
 
+## Automated Testing
+
+Run the comprehensive endpoint test suite to verify all features:
+
+```bash
+# In a separate terminal (while server is running)
+node test-all-endpoints.js
+```
+
+This test script validates:
+- ✅ All 8 endpoints respond correctly
+- ✅ Rate limit headers are present and accurate
+- ✅ 429 status codes for rate limit exceeded
+- ✅ Retry-After headers on blocked requests
+- ✅ Load testing with concurrent requests
+- ✅ Health check endpoint (no rate limiting)
+- ✅ Metrics endpoint accessibility
+
+Expected output: **100% tests passing** with detailed results for each endpoint.
+
 ## Usage
 
 ### Testing Individual Endpoints
