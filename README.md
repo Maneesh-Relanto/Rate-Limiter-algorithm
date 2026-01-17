@@ -9,7 +9,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](package.json)
 [![Documentation](https://img.shields.io/badge/docs-comprehensive-blue.svg)](docs/)
-[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/yourusername/rate-limiter)
+[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/Maneesh-Relanto/rate-limiter)
 [![Test Framework](https://img.shields.io/badge/tested%20with-Jest-C21325.svg)](https://jestjs.io/)
 [![Linted](https://img.shields.io/badge/code%20style-ESLint%20%2B%20Prettier-blueviolet.svg)](.eslintrc.js)
 
@@ -118,7 +118,7 @@ rate-limiter/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/rate-limiter.git
+git clone https://github.com/Maneesh-Relanto/rate-limiter.git
 cd rate-limiter
 
 # See detailed setup guide
