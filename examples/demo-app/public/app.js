@@ -121,14 +121,14 @@ function displayResponseBody(data, status) {
 }
 
 // Switch tabs
-function switchTab(tabName) {
+function switchTab(tabName, clickedElement) {
   currentTab = tabName;
   
   // Update tab buttons
   document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.remove('active');
   });
-  event.target.classList.add('active');
+  clickedElement.classList.add('active');
   
   // Update tab content
   document.querySelectorAll('.tab-content').forEach(content => {

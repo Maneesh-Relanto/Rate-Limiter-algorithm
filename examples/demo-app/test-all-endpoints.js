@@ -3,7 +3,7 @@
  * Tests all 8 endpoints to ensure rate limiting works correctly
  */
 
-const http = require('http');
+const http = require('node:http');
 
 const BASE_URL = 'http://localhost:3000';
 const endpoints = [
@@ -45,7 +45,10 @@ function makeRequest(endpoint) {
             headers: res.headers,
             body: response
           });
-        } catch (e) {
+        } catch (parseError) {
+          // If response is not JSON, return raw data
+          // This is expected for non-JSON responses
+          console.debug('Non-JSON response received:', parseError.message);
           resolve({
             status: res.statusCode,
             headers: res.headers,
@@ -87,7 +90,7 @@ async function testEndpoint(endpoint) {
         console.log('   ✅ Rate limit headers present');
         console.log(`      Limit: ${response.headers['x-ratelimit-limit']}`);
         console.log(`      Remaining: ${response.headers['x-ratelimit-remaining']}`);
-        console.log(`      Reset: ${new Date(parseInt(response.headers['x-ratelimit-reset'])).toLocaleTimeString()}`);
+        console.log(`      Reset: ${new Date(Number.parseInt(response.headers['x-ratelimit-reset'])).toLocaleTimeString()}`);
         passedTests++;
       } else {
         console.log('   ❌ Rate limit headers missing');
@@ -204,6 +207,7 @@ async function runAllTests() {
     console.log('✅ Server is running at http://localhost:3000\n');
   } catch (error) {
     console.error('❌ Cannot connect to server!');
+    console.error(`   Error: ${error.message}`);
     console.error('   Please start the server first:');
     console.error('   cd examples/demo-app');
     console.error('   node server.js\n');
@@ -238,7 +242,10 @@ async function runAllTests() {
 }
 
 // Run tests
-runAllTests().catch(error => {
+try {
+  await runAllTests();
+} catch (error) {
   console.error('\n❌ Test suite failed:', error.message);
+  console.error(error.stack);
   process.exit(1);
-});
+}
