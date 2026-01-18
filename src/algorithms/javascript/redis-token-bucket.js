@@ -166,6 +166,12 @@ class RedisTokenBucket extends EventEmitter {
       throw new Error('Tokens required must be a positive number');
     }
 
+    // If already in insurance mode, use insurance limiter directly
+    if (this.insuranceActive && this.insuranceLimiter) {
+      const allowed = this.insuranceLimiter.allowRequest(tokensRequired);
+      return allowed;
+    }
+
     try {
       // Check if blocked first
       const blocked = await this.isBlocked();
@@ -186,6 +192,7 @@ class RedisTokenBucket extends EventEmitter {
 
       // Redis success - reset failure tracking
       if (this.insuranceEnabled) {
+        const previousFailures = this.redisFailureCount;
         this.redisFailureCount = 0;
         this.lastRedisSuccess = Date.now();
         if (this.insuranceActive) {
@@ -194,7 +201,7 @@ class RedisTokenBucket extends EventEmitter {
           this.insuranceLimiter.reset();
           this.emit('insuranceDeactivated', {
             reason: 'redis_recovered',
-            failureCount: this.redisFailureCount,
+            totalFailures: previousFailures,
             timestamp: Date.now()
           });
         }
@@ -244,6 +251,8 @@ class RedisTokenBucket extends EventEmitter {
             reason: 'redis_error',
             error: error.message,
             failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
             timestamp: Date.now()
           });
         }
@@ -420,7 +429,9 @@ class RedisTokenBucket extends EventEmitter {
         availableTokens,
         lastRefill,
         refillRate: this.refillRate,
-        key: this.key
+        key: this.key,
+        insuranceActive: this.isInsuranceActive(),
+        insuranceStatus: this.getInsuranceStatus()
       };
 
       if (!detailed) {
@@ -443,6 +454,7 @@ class RedisTokenBucket extends EventEmitter {
 
       return {
         ...baseState,
+        detailed: true,
         // Token metrics
         tokensUsed: this.capacity - availableTokens,
         utilizationPercent,
@@ -456,7 +468,7 @@ class RedisTokenBucket extends EventEmitter {
 
         // Block information
         isBlocked,
-        blockUntil: blockUntil ? parseInt(blockUntil) : null,
+        blockUntil: blockUntil ? Number.parseInt(blockUntil) : null,
         blockTimeRemaining,
 
         // Metadata
@@ -466,13 +478,42 @@ class RedisTokenBucket extends EventEmitter {
       };
     } catch (error) {
       console.error('Redis error in getState:', error.message);
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        const insuranceState = this.insuranceLimiter.getState(detailed);
+        return {
+          ...insuranceState,
+          detailed,
+          insuranceActive: true,
+          insuranceStatus: this.getInsuranceStatus()
+        };
+      }
+
       return {
         capacity: this.capacity,
         availableTokens: 0,
         lastRefill: Date.now(),
         refillRate: this.refillRate,
         key: this.key,
-        error: error.message
+        error: error.message,
+        insuranceActive: false,
+        insuranceStatus: this.getInsuranceStatus()
       };
     }
   }
@@ -584,7 +625,7 @@ class RedisTokenBucket extends EventEmitter {
 
       this.emit('penalty', data);
 
-      return data;
+      return { success: true, tokensRemoved: result[0], remainingTokens: result[1] };
     } catch (error) {
       console.error('Redis error in penalty:', error.message);
       this.emit('redisError', {
@@ -592,6 +633,28 @@ class RedisTokenBucket extends EventEmitter {
         error: error.message,
         timestamp: Date.now()
       });
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        const result = this.insuranceLimiter.penalty(points);
+        return { success: true, tokensRemoved: points, remainingTokens: result.tokens };
+      }
+
       throw error;
     }
   }
@@ -692,7 +755,7 @@ class RedisTokenBucket extends EventEmitter {
 
       this.emit('reward', data);
 
-      return data;
+      return { success: true, tokensAdded: result[0], remainingTokens: result[1] };
     } catch (error) {
       console.error('Redis error in reward:', error.message);
       this.emit('redisError', {
@@ -700,6 +763,28 @@ class RedisTokenBucket extends EventEmitter {
         error: error.message,
         timestamp: Date.now()
       });
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        const result = this.insuranceLimiter.reward(points);
+        return { success: true, tokensAdded: result.tokensAdded || points, remainingTokens: result.tokens };
+      }
+
       throw error;
     }
   }
@@ -825,10 +910,26 @@ class RedisTokenBucket extends EventEmitter {
     const wasActive = this.insuranceActive;
     this.insuranceActive = active;
 
-    if (!active && wasActive) {
+    if (active && !wasActive) {
+      // Emit activation event
+      this.emit('insuranceActivated', {
+        reason: 'manual',
+        failureCount: this.redisFailureCount,
+        insuranceCapacity: this.insuranceCapacity,
+        insuranceRefillRate: this.insuranceRefillRate,
+        timestamp: Date.now()
+      });
+    } else if (!active && wasActive) {
       // Reset insurance limiter when deactivating
       this.insuranceLimiter.reset();
+      const previousFailures = this.redisFailureCount;
       this.redisFailureCount = 0;
+      // Emit deactivation event
+      this.emit('insuranceDeactivated', {
+        reason: 'manual',
+        totalFailures: previousFailures,
+        timestamp: Date.now()
+      });
     }
 
     return {
@@ -837,6 +938,7 @@ class RedisTokenBucket extends EventEmitter {
       nowActive: this.insuranceActive
     };
   }
+
 
   /**   * Blocks the bucket for a specified duration
    * During the block period, all requests will be rejected regardless of token availability
@@ -876,6 +978,28 @@ class RedisTokenBucket extends EventEmitter {
       };
     } catch (error) {
       console.error('Redis error in block:', error.message);
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        const result = this.insuranceLimiter.block(durationMs);
+        return result;
+      }
+
       throw error;
     }
   }
@@ -892,6 +1016,11 @@ class RedisTokenBucket extends EventEmitter {
    * }
    */
   async isBlocked() {
+    // If already in insurance mode, use insurance limiter directly
+    if (this.insuranceActive && this.insuranceLimiter) {
+      return this.insuranceLimiter.isBlocked();
+    }
+
     try {
       const blockKey = `${this.key}:block`;
       const blockUntil = await this.redis.get(blockKey);
@@ -901,7 +1030,7 @@ class RedisTokenBucket extends EventEmitter {
       }
 
       const now = Date.now();
-      const blockTime = parseInt(blockUntil, 10);
+      const blockTime = Number.parseInt(blockUntil, 10);
 
       if (now >= blockTime) {
         // Block has expired, clean up
@@ -912,6 +1041,27 @@ class RedisTokenBucket extends EventEmitter {
       return true;
     } catch (error) {
       console.error('Redis error in isBlocked:', error.message);
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        return this.insuranceLimiter.isBlocked();
+      }
+
       // Fail open on Redis errors
       return false;
     }
@@ -973,6 +1123,28 @@ class RedisTokenBucket extends EventEmitter {
       };
     } catch (error) {
       console.error('Redis error in unblock:', error.message);
+
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
+        this.insuranceActive = true;
+
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            insuranceCapacity: this.insuranceCapacity,
+            insuranceRefillRate: this.insuranceRefillRate,
+            timestamp: Date.now()
+          });
+        }
+
+        const result = this.insuranceLimiter.unblock();
+        return result;
+      }
+
       throw error;
     }
   }

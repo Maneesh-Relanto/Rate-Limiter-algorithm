@@ -238,6 +238,7 @@ class TokenBucket extends EventEmitter {
    */
   reset(tokens) {
     const oldTokens = Math.floor(this.tokens);
+    const wasBlocked = this.blockUntil !== null;
 
     if (tokens === undefined) {
       // Default: reset to full capacity
@@ -258,12 +259,16 @@ class TokenBucket extends EventEmitter {
     }
 
     this.lastRefill = Date.now();
+    
+    // Clear block state when resetting
+    this.blockUntil = null;
 
     const result = {
       oldTokens,
       newTokens: Math.floor(this.tokens),
       capacity: this.capacity,
       reset: true,
+      wasBlocked,
       timestamp: Date.now()
     };
 
@@ -370,7 +375,19 @@ class TokenBucket extends EventEmitter {
 
     // Check if block has expired
     if (now >= this.blockUntil) {
+      const wasBlocked = this.blockUntil !== null;
       this.blockUntil = null; // Auto-unblock
+      
+      // Emit unblocked event with reason 'expired' (only if was actually blocked)
+      if (wasBlocked) {
+        this.emit('unblocked', {
+          unblocked: true,
+          wasBlocked: true,
+          reason: 'expired',
+          timestamp: now
+        });
+      }
+      
       return false;
     }
 
@@ -412,6 +429,7 @@ class TokenBucket extends EventEmitter {
     const result = {
       unblocked: true,
       wasBlocked: wasBlocked,
+      reason: 'manual',
       timestamp: Date.now()
     };
 
