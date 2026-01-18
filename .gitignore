@@ -54,5 +54,6 @@ Desktop.ini
 # Internal documentation - keep local only
 *.md
 !README.md
+!docs/**/*.md
 examples/**/README.md
 playground/**/README.md
