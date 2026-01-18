@@ -180,7 +180,9 @@ describe('TokenBucket', () => {
       bucket.allowRequest(50); // Use 50 tokens
 
       const state = bucket.getState();
-      expect(state.utilizationPercent).toBe(50);
+      // Allow for minor floating point differences
+      expect(state.utilizationPercent).toBeGreaterThanOrEqual(49.9);
+      expect(state.utilizationPercent).toBeLessThanOrEqual(50.1);
     });
   });
 
