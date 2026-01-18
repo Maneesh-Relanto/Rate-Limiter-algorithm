@@ -2,11 +2,11 @@ const EventEmitter = require('events');
 
 /**
  * Token Bucket Rate Limiting Algorithm
- * 
+ *
  * Tokens are added to a bucket at a constant rate (refill rate).
  * Each request consumes one token. If no tokens are available, the request is rejected.
  * The bucket has a maximum capacity to prevent unlimited accumulation.
- * 
+ *
  * Events emitted:
  * - 'allowed': Request was allowed { tokens, remainingTokens, cost, timestamp }
  * - 'rateLimitExceeded': Request was denied { tokens, cost, retryAfter, timestamp }
@@ -15,7 +15,7 @@ const EventEmitter = require('events');
  * - 'blocked': Bucket was blocked { duration, reason, timestamp }
  * - 'unblocked': Bucket was unblocked { reason, timestamp }
  * - 'reset': Bucket was reset { oldTokens, newTokens, timestamp }
- * 
+ *
  * @example
  * const limiter = new TokenBucket(100, 10); // 100 capacity, 10 tokens/sec
  * limiter.on('rateLimitExceeded', (data) => {
@@ -30,14 +30,14 @@ const EventEmitter = require('events');
 class TokenBucket extends EventEmitter {
   /**
    * Creates a new Token Bucket rate limiter
-   * 
+   *
    * @param {number} capacity - Maximum number of tokens the bucket can hold
    * @param {number} refillRate - Number of tokens added per second
    * @throws {Error} If capacity or refillRate are invalid
    */
   constructor(capacity, refillRate) {
     super();
-    
+
     if (!Number.isFinite(capacity) || capacity <= 0) {
       throw new Error('Capacity must be a positive number');
     }
@@ -54,7 +54,7 @@ class TokenBucket extends EventEmitter {
 
   /**
    * Attempts to consume a token for the request
-   * 
+   *
    * @param {number} [tokensRequired=1] - Number of tokens to consume
    * @returns {boolean} True if request is allowed, false otherwise
    */
@@ -116,7 +116,7 @@ class TokenBucket extends EventEmitter {
 
   /**
    * Gets the current number of available tokens
-   * 
+   *
    * @returns {number} Current token count
    */
   getAvailableTokens() {
@@ -126,7 +126,7 @@ class TokenBucket extends EventEmitter {
 
   /**
    * Gets the time in milliseconds until next token is available
-   * 
+   *
    * @returns {number} Milliseconds until next token (0 if tokens available)
    */
   getTimeUntilNextToken() {
@@ -144,15 +144,15 @@ class TokenBucket extends EventEmitter {
   /**
    * Applies a penalty by removing tokens from the bucket
    * Useful for punishing bad behavior (failed login attempts, invalid requests)
-   * 
+   *
    * @param {number} [points=1] - Number of tokens to remove as penalty
    * @returns {Object} Result with remainingTokens and penaltyApplied
    * @throws {Error} If points is invalid
-   * 
+   *
    * @example
    * // Failed login attempt - remove 5 tokens
    * limiter.penalty(5);
-   * 
+   *
    * // Multiple failed attempts can reduce tokens below zero
    * limiter.penalty(10); // Now user must wait longer for tokens to refill
    */
@@ -162,35 +162,35 @@ class TokenBucket extends EventEmitter {
     }
 
     this._refill();
-    
+
     // Allow tokens to go below zero (accumulating debt)
     const beforePenalty = this.tokens;
     this.tokens -= points;
-    
+
     const result = {
       penaltyApplied: points,
       remainingTokens: Math.floor(this.tokens),
       beforePenalty: Math.floor(beforePenalty),
       timestamp: Date.now()
     };
-    
+
     this.emit('penalty', result);
-    
+
     return result;
   }
 
   /**
    * Applies a reward by adding tokens to the bucket
    * Useful for rewarding good behavior (successful captcha, verification)
-   * 
+   *
    * @param {number} [points=1] - Number of tokens to add as reward
    * @returns {Object} Result with remainingTokens and rewardApplied
    * @throws {Error} If points is invalid
-   * 
+   *
    * @example
    * // User completed captcha successfully - reward 2 tokens
    * limiter.reward(2);
-   * 
+   *
    * // Rewards respect capacity - cannot exceed max tokens
    * limiter.reward(1000); // Only adds up to capacity
    */
@@ -200,12 +200,12 @@ class TokenBucket extends EventEmitter {
     }
 
     this._refill();
-    
+
     const beforeReward = this.tokens;
     // Respect capacity - cannot exceed maximum
     this.tokens = Math.min(this.capacity, this.tokens + points);
     const actualReward = this.tokens - beforeReward;
-    
+
     const result = {
       rewardApplied: Math.floor(actualReward),
       remainingTokens: Math.floor(this.tokens),
@@ -213,32 +213,32 @@ class TokenBucket extends EventEmitter {
       cappedAtCapacity: this.tokens >= this.capacity,
       timestamp: Date.now()
     };
-    
+
     this.emit('reward', result);
-    
+
     return result;
   }
 
   /**
    * Resets the bucket to full capacity or a specified token count
-   * 
+   *
    * @param {number} [tokens] - Optional: number of tokens to reset to (defaults to capacity)
    * @returns {Object} Result with old and new token counts
    * @throws {Error} If tokens exceeds capacity or is negative
-   * 
+   *
    * @example
    * // Reset to full capacity
    * limiter.reset();
-   * 
+   *
    * // Reset to specific value
    * limiter.reset(50); // Set to 50 tokens
-   * 
+   *
    * // Admin grants bonus tokens after issue
    * limiter.reset(limiter.capacity);
    */
   reset(tokens) {
     const oldTokens = Math.floor(this.tokens);
-    
+
     if (tokens === undefined) {
       // Default: reset to full capacity
       this.tokens = this.capacity;
@@ -253,12 +253,12 @@ class TokenBucket extends EventEmitter {
       if (tokens > this.capacity) {
         throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
       }
-      
+
       this.tokens = tokens;
     }
-    
+
     this.lastRefill = Date.now();
-    
+
     const result = {
       oldTokens,
       newTokens: Math.floor(this.tokens),
@@ -266,27 +266,27 @@ class TokenBucket extends EventEmitter {
       reset: true,
       timestamp: Date.now()
     };
-    
+
     this.emit('reset', result);
-    
+
     return result;
   }
 
   /**
    * Manually sets the token count
    * Useful for admin operations or synchronizing state
-   * 
+   *
    * @param {number} tokens - Number of tokens to set
    * @returns {Object} Result with old and new token counts
    * @throws {Error} If tokens is invalid or exceeds capacity
-   * 
+   *
    * @example
    * // Set tokens to specific value
    * limiter.setTokens(75);
-   * 
+   *
    * // Drain all tokens (emergency rate limit)
    * limiter.setTokens(0);
-   * 
+   *
    * // Admin restores tokens after false positive
    * limiter.setTokens(limiter.capacity);
    */
@@ -300,11 +300,11 @@ class TokenBucket extends EventEmitter {
     if (tokens > this.capacity) {
       throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
     }
-    
+
     const oldTokens = Math.floor(this.tokens);
     this.tokens = tokens;
     this.lastRefill = Date.now();
-    
+
     return {
       oldTokens,
       newTokens: Math.floor(this.tokens),
@@ -316,17 +316,17 @@ class TokenBucket extends EventEmitter {
   /**
    * Blocks the bucket for a specified duration
    * During the block period, all requests will be rejected regardless of token availability
-   * 
+   *
    * @param {number} durationMs - Duration to block in milliseconds
    * @returns {Object} Result with blockUntil timestamp and duration
    * @throws {Error} If duration is invalid
-   * 
+   *
    * @example
    * // Block for 5 minutes after 3 failed login attempts
    * if (failedAttempts >= 3) {
    *   limiter.block(5 * 60 * 1000);
    * }
-   * 
+   *
    * // Temporary IP ban for 1 hour
    * limiter.block(60 * 60 * 1000);
    */
@@ -336,7 +336,7 @@ class TokenBucket extends EventEmitter {
     }
 
     this.blockUntil = Date.now() + durationMs;
-    
+
     const result = {
       blocked: true,
       blockUntil: this.blockUntil,
@@ -344,17 +344,17 @@ class TokenBucket extends EventEmitter {
       unblockAt: new Date(this.blockUntil).toISOString(),
       timestamp: Date.now()
     };
-    
+
     this.emit('blocked', result);
-    
+
     return result;
   }
 
   /**
    * Checks if the bucket is currently blocked
-   * 
+   *
    * @returns {boolean} True if blocked, false otherwise
-   * 
+   *
    * @example
    * if (limiter.isBlocked()) {
    *   const timeLeft = limiter.getBlockTimeRemaining();
@@ -367,7 +367,7 @@ class TokenBucket extends EventEmitter {
     }
 
     const now = Date.now();
-    
+
     // Check if block has expired
     if (now >= this.blockUntil) {
       this.blockUntil = null; // Auto-unblock
@@ -379,9 +379,9 @@ class TokenBucket extends EventEmitter {
 
   /**
    * Gets the remaining time in milliseconds until unblock
-   * 
+   *
    * @returns {number} Milliseconds until unblock (0 if not blocked)
-   * 
+   *
    * @example
    * const msRemaining = limiter.getBlockTimeRemaining();
    * const secondsRemaining = Math.ceil(msRemaining / 1000);
@@ -398,9 +398,9 @@ class TokenBucket extends EventEmitter {
   /**
    * Manually unblocks the bucket
    * Useful for admin operations or resolving false positives
-   * 
+   *
    * @returns {Object} Result indicating unblock status
-   * 
+   *
    * @example
    * // Admin unblocks a user after verification
    * limiter.unblock();
@@ -408,73 +408,74 @@ class TokenBucket extends EventEmitter {
   unblock() {
     const wasBlocked = this.blockUntil !== null;
     this.blockUntil = null;
-    
+
     const result = {
       unblocked: true,
       wasBlocked: wasBlocked,
       timestamp: Date.now()
     };
-    
+
     if (wasBlocked) {
       this.emit('unblocked', result);
     }
-    
+
     return result;
   }
 
   /**
    * Gets the current state of the rate limiter
-   * 
+   *
    * @param {boolean} [detailed=false] - Include detailed metrics and timing info
    * @returns {Object} Current state including capacity, tokens, and rate
-   * 
+   *
    * @example
    * // Basic state
    * const state = limiter.getState();
    * console.log(state.availableTokens); // Current tokens
-   * 
+   *
    * // Detailed state with timing and block info
    * const detailed = limiter.getState(true);
    * console.log(detailed.isBlocked, detailed.nextRefillIn);
    */
   getState(detailed = false) {
     this._refill();
-    
+
     const baseState = {
       capacity: this.capacity,
       availableTokens: Math.floor(this.tokens),
       refillRate: this.refillRate,
       utilizationPercent: ((this.capacity - this.tokens) / this.capacity) * 100
     };
-    
+
     if (!detailed) {
       return baseState;
     }
-    
+
     // Calculate time until next token
     const tokensNeeded = 1;
-    const timeUntilNextToken = tokensNeeded > this.tokens 
-      ? Math.ceil(((tokensNeeded - this.tokens) / this.refillRate) * 1000)
-      : 0;
-    
+    const timeUntilNextToken =
+      tokensNeeded > this.tokens
+        ? Math.ceil(((tokensNeeded - this.tokens) / this.refillRate) * 1000)
+        : 0;
+
     return {
       ...baseState,
       // Token metrics
       tokensUsed: this.capacity - Math.floor(this.tokens),
       tokensFull: Math.floor(this.tokens) === this.capacity,
       tokensEmpty: this.tokens < 1,
-      
+
       // Timing information
       lastRefill: this.lastRefill,
       lastRefillAt: new Date(this.lastRefill).toISOString(),
       nextRefillIn: timeUntilNextToken,
       timeToFullMs: Math.ceil(((this.capacity - this.tokens) / this.refillRate) * 1000),
-      
+
       // Block information
       isBlocked: this.isBlocked(),
       blockUntil: this.blockUntil,
       blockTimeRemaining: this.getBlockTimeRemaining(),
-      
+
       // Metadata
       timestamp: Date.now(),
       timestampISO: new Date().toISOString()
@@ -484,9 +485,9 @@ class TokenBucket extends EventEmitter {
   /**
    * Serializes the token bucket state to JSON
    * Useful for persisting state to disk or transferring between processes
-   * 
+   *
    * @returns {Object} Serializable object containing bucket state
-   * 
+   *
    * @example
    * const limiter = new TokenBucket(100, 10);
    * limiter.allowRequest();
@@ -513,11 +514,11 @@ class TokenBucket extends EventEmitter {
   /**
    * Creates a TokenBucket instance from a JSON object
    * Restores the exact state including token count and timing
-   * 
+   *
    * @param {Object} json - Serialized state from toJSON()
    * @returns {TokenBucket} New TokenBucket instance with restored state
    * @throws {Error} If json is invalid or missing required fields
-   * 
+   *
    * @example
    * const state = JSON.parse(fs.readFileSync('state.json'));
    * const limiter = TokenBucket.fromJSON(state);
@@ -532,7 +533,7 @@ class TokenBucket extends EventEmitter {
     // Check for required fields
     const requiredFields = ['capacity', 'tokens', 'refillRate', 'lastRefill'];
     const missingFields = requiredFields.filter(field => !(field in json));
-    
+
     if (missingFields.length > 0) {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
@@ -553,16 +554,18 @@ class TokenBucket extends EventEmitter {
 
     // Validate tokens don't exceed capacity
     if (json.tokens > json.capacity) {
-      throw new Error(`Invalid state: tokens (${json.tokens}) cannot exceed capacity (${json.capacity})`);
+      throw new Error(
+        `Invalid state: tokens (${json.tokens}) cannot exceed capacity (${json.capacity})`
+      );
     }
 
     // Create instance
     const instance = new TokenBucket(json.capacity, json.refillRate);
-    
+
     // Restore state
     instance.tokens = json.tokens;
     instance.lastRefill = json.lastRefill;
-    
+
     // Restore block state if present
     if (json.blockUntil !== undefined && json.blockUntil !== null) {
       if (!Number.isFinite(json.blockUntil) || json.blockUntil < 0) {
@@ -576,9 +579,9 @@ class TokenBucket extends EventEmitter {
 
   /**
    * Creates a deep copy of the token bucket
-   * 
+   *
    * @returns {TokenBucket} New instance with same state
-   * 
+   *
    * @example
    * const original = new TokenBucket(100, 10);
    * const copy = original.clone();

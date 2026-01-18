@@ -1,6 +1,6 @@
 /**
  * Express API with Rate Limiting Example
- * 
+ *
  * Demonstrates various rate limiting strategies in a real Express application.
  * Includes per-user, per-IP, per-endpoint, and cost-based rate limiting.
  */
@@ -26,10 +26,13 @@ app.use(express.json());
 console.log('\n📊 Example 1: Global Rate Limiting');
 console.log('   All requests limited to 1000 per minute globally\n');
 
-app.use('/api/public', globalRateLimit({
-  capacity: 1000,
-  refillRate: 16.67 // 1000 per minute
-}));
+app.use(
+  '/api/public',
+  globalRateLimit({
+    capacity: 1000,
+    refillRate: 16.67 // 1000 per minute
+  })
+);
 
 app.get('/api/public/status', (req, res) => {
   res.json({ status: 'ok', message: 'Public API' });
@@ -40,10 +43,13 @@ app.get('/api/public/status', (req, res) => {
 console.log('📊 Example 2: Per-IP Rate Limiting');
 console.log('   Each IP limited to 100 requests per minute\n');
 
-app.use('/api/guest', perIpRateLimit({
-  capacity: 100,
-  refillRate: 1.67 // 100 per minute
-}));
+app.use(
+  '/api/guest',
+  perIpRateLimit({
+    capacity: 100,
+    refillRate: 1.67 // 100 per minute
+  })
+);
 
 app.get('/api/guest/data', (req, res) => {
   res.json({
@@ -63,11 +69,15 @@ function mockAuth(req, res, next) {
   next();
 }
 
-app.use('/api/user', mockAuth, perUserRateLimit({
-  capacity: 500,
-  refillRate: 8.33, // 500 per minute
-  getUserId: (req) => req.user?.id
-}));
+app.use(
+  '/api/user',
+  mockAuth,
+  perUserRateLimit({
+    capacity: 500,
+    refillRate: 8.33, // 500 per minute
+    getUserId: req => req.user?.id
+  })
+);
 
 app.get('/api/user/profile', (req, res) => {
   res.json({
@@ -82,7 +92,8 @@ console.log('📊 Example 4: Per-Endpoint Rate Limiting');
 console.log('   Each endpoint has independent rate limits\n');
 
 // Sensitive endpoint with stricter limits
-app.post('/api/auth/login',
+app.post(
+  '/api/auth/login',
   perEndpointRateLimit({
     capacity: 5,
     refillRate: 0.083 // 5 per hour
@@ -93,10 +104,11 @@ app.post('/api/auth/login',
 );
 
 // Password reset with moderate limits
-app.post('/api/auth/reset-password',
+app.post(
+  '/api/auth/reset-password',
   perEndpointRateLimit({
     capacity: 3,
-    refillRate: 0.017 // 3 per hour  
+    refillRate: 0.017 // 3 per hour
   }),
   (req, res) => {
     res.json({ message: 'Password reset email sent' });
@@ -108,10 +120,13 @@ app.post('/api/auth/reset-password',
 console.log('📊 Example 5: Cost-Based Rate Limiting');
 console.log('   Operations have different costs in tokens\n');
 
-app.use('/api/operations', tokenBucketMiddleware({
-  capacity: 1000,
-  refillRate: 16.67
-}));
+app.use(
+  '/api/operations',
+  tokenBucketMiddleware({
+    capacity: 1000,
+    refillRate: 16.67
+  })
+);
 
 // Cheap operation: 1 token
 app.get('/api/operations/read', setRequestCost(1), (req, res) => {
@@ -153,17 +168,24 @@ app.post('/api/operations/bulk-import', setRequestCost(100), (req, res) => {
 console.log('📊 Example 6: Conditional Rate Limiting');
 console.log('   Health checks and admin requests skip rate limiting\n');
 
-app.use('/api/protected', tokenBucketMiddleware({
-  capacity: 100,
-  refillRate: 1.67,
-  skip: (req) => {
-    // Skip health checks
-    if (req.path === '/health') {return true;}
-    // Skip admin users
-    if (req.headers['x-admin'] === 'true') {return true;}
-    return false;
-  }
-}));
+app.use(
+  '/api/protected',
+  tokenBucketMiddleware({
+    capacity: 100,
+    refillRate: 1.67,
+    skip: req => {
+      // Skip health checks
+      if (req.path === '/health') {
+        return true;
+      }
+      // Skip admin users
+      if (req.headers['x-admin'] === 'true') {
+        return true;
+      }
+      return false;
+    }
+  })
+);
 
 app.get('/api/protected/health', (req, res) => {
   res.json({ healthy: true, rateLimited: false });
@@ -180,22 +202,25 @@ app.get('/api/protected/data', (req, res) => {
 console.log('📊 Example 7: Custom Error Handling');
 console.log('   Custom response when rate limit is exceeded\n');
 
-app.use('/api/custom', tokenBucketMiddleware({
-  capacity: 10,
-  refillRate: 1,
-  handler: (req, res) => {
-    res.status(429).json({
-      error: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'You have exceeded the rate limit. Please slow down.',
-        retryAfter: res.getHeader('Retry-After'),
-        limit: req.rateLimit.limit,
-        remaining: req.rateLimit.remaining,
-        resetTime: new Date(req.rateLimit.resetTime).toISOString()
-      }
-    });
-  }
-}));
+app.use(
+  '/api/custom',
+  tokenBucketMiddleware({
+    capacity: 10,
+    refillRate: 1,
+    handler: (req, res) => {
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: 'You have exceeded the rate limit. Please slow down.',
+          retryAfter: res.getHeader('Retry-After'),
+          limit: req.rateLimit.limit,
+          remaining: req.rateLimit.remaining,
+          resetTime: new Date(req.rateLimit.resetTime).toISOString()
+        }
+      });
+    }
+  })
+);
 
 app.get('/api/custom/data', (req, res) => {
   res.json({ data: 'custom error handler demo' });
@@ -210,16 +235,19 @@ const rateLimitMetrics = {
   totalRequests: 0
 };
 
-app.use('/api/monitored', tokenBucketMiddleware({
-  capacity: 50,
-  refillRate: 5,
-  onLimitReached: (req, res) => {
-    rateLimitMetrics.exceeded++;
-    console.log(`⚠️  Rate limit exceeded for ${req.ip} at ${new Date().toISOString()}`);
-    console.log(`   Endpoint: ${req.method} ${req.path}`);
-    console.log(`   Total exceeded: ${rateLimitMetrics.exceeded}`);
-  }
-}));
+app.use(
+  '/api/monitored',
+  tokenBucketMiddleware({
+    capacity: 50,
+    refillRate: 5,
+    onLimitReached: (req, _res) => {
+      rateLimitMetrics.exceeded++;
+      console.log(`⚠️  Rate limit exceeded for ${req.ip} at ${new Date().toISOString()}`);
+      console.log(`   Endpoint: ${req.method} ${req.path}`);
+      console.log(`   Total exceeded: ${rateLimitMetrics.exceeded}`);
+    }
+  })
+);
 
 // Middleware to count all requests
 app.use('/api/monitored', (req, res, next) => {
@@ -237,7 +265,8 @@ app.get('/api/monitored/resource', (req, res) => {
 app.get('/api/monitored/metrics', (req, res) => {
   res.json({
     metrics: rateLimitMetrics,
-    rejectionRate: ((rateLimitMetrics.exceeded / rateLimitMetrics.totalRequests) * 100).toFixed(2) + '%'
+    rejectionRate:
+      ((rateLimitMetrics.exceeded / rateLimitMetrics.totalRequests) * 100).toFixed(2) + '%'
   });
 });
 
@@ -269,7 +298,7 @@ app.get('/', (req, res) => {
 });
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });

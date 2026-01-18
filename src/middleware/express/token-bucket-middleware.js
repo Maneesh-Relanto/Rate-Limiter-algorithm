@@ -1,13 +1,13 @@
 /**
  * Express Middleware for Token Bucket Rate Limiting
- * 
+ *
  * Provides easy integration of rate limiting into Express applications.
  * Supports per-user, per-IP, and custom key strategies.
  * Adds standard rate limit headers to responses.
- * 
+ *
  * @example
  * const { tokenBucketMiddleware } = require('./middleware/express/token-bucket-middleware');
- * 
+ *
  * app.use(tokenBucketMiddleware({
  *   capacity: 100,
  *   refillRate: 10,
@@ -20,7 +20,7 @@ const { DEFAULT_HEADERS, shouldSkipByDefault } = require('./defaults');
 
 /**
  * Create rate limiting middleware for Express
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {number} options.capacity - Maximum tokens in bucket
  * @param {number} options.refillRate - Tokens added per second
@@ -44,11 +44,12 @@ function tokenBucketMiddleware(options = {}) {
     capacity: options.capacity,
     refillRate: options.refillRate,
     refillInterval: options.refillInterval || 1000,
-    keyGenerator: options.keyGenerator || ((req) => req.ip || 'global'),
+    keyGenerator: options.keyGenerator || (req => req.ip || 'global'),
     handler: options.handler || defaultHandler,
-    skip: options.skip || ((req) => shouldSkipByDefault(req, options.config)),
+    skip: options.skip || (req => shouldSkipByDefault(req, options.config)),
     headers: {
-      standard: options.headers?.standard ?? options.standardHeaders ?? DEFAULT_HEADERS.standardHeaders,
+      standard:
+        options.headers?.standard ?? options.standardHeaders ?? DEFAULT_HEADERS.standardHeaders,
       legacy: options.headers?.legacy ?? options.legacyHeaders ?? DEFAULT_HEADERS.legacyHeaders
     },
     onLimitReached: options.onLimitReached || (() => {}),
@@ -121,9 +122,9 @@ function tokenBucketMiddleware(options = {}) {
       } else {
         // Rate limit exceeded
         const retryAfter = Math.ceil(limiter.getTimeUntilNextToken(tokenCost) / 1000);
-        
+
         res.setHeader('Retry-After', retryAfter);
-        
+
         // Call onLimitReached callback
         config.onLimitReached(req, res);
 
@@ -151,7 +152,7 @@ function defaultHandler(req, res) {
 
 /**
  * Create middleware with per-user rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Function} options.getUserId - Function to extract user ID from request
  * @param {boolean} options.fallbackToIp - Fall back to IP if no user ID (default: false)
@@ -170,7 +171,7 @@ function perUserRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => {
+    keyGenerator: req => {
       const userId = options.getUserId(req);
       if (userId) {
         return `user:${userId}`;
@@ -182,7 +183,7 @@ function perUserRateLimit(options = {}) {
 
 /**
  * Create middleware with per-IP rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -195,13 +196,13 @@ function perIpRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => `ip:${req.ip}`
+    keyGenerator: req => `ip:${req.ip}`
   });
 }
 
 /**
  * Create middleware with per-endpoint rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -214,7 +215,7 @@ function perEndpointRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => {
+    keyGenerator: req => {
       const userId = options.getUserId?.(req) || req.ip;
       return `${req.method}:${req.path}:${userId}`;
     }
@@ -223,7 +224,7 @@ function perEndpointRateLimit(options = {}) {
 
 /**
  * Create global rate limiter (single bucket for all requests)
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -243,12 +244,12 @@ function globalRateLimit(options = {}) {
 /**
  * Cost-based rate limiting helper
  * Sets token cost for the request based on operation type
- * 
+ *
  * @param {number|Function} cost - Number of tokens this request costs, or function that returns cost
  * @returns {Function} Express middleware
  */
 function setRequestCost(cost) {
-  return function(req, res, next) {
+  return function (req, res, next) {
     req.tokenCost = typeof cost === 'function' ? cost(req) : cost;
     next();
   };
@@ -257,26 +258,27 @@ function setRequestCost(cost) {
 /**
  * Apply penalty to a user's rate limit bucket
  * Removes tokens from the bucket, useful for punishing bad behavior
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Function} options.keyGenerator - Function to generate rate limit key from request
  * @param {number|Function} options.points - Number of tokens to remove (default: 1)
  * @returns {Function} Express middleware that applies penalty and continues
  */
 function applyPenalty(options = {}) {
-  const keyGenerator = options.keyGenerator || ((req) => req.ip || 'global');
-  const getPoints = typeof options.points === 'function' ? options.points : () => options.points || 1;
+  const keyGenerator = options.keyGenerator || (req => req.ip || 'global');
+  const getPoints =
+    typeof options.points === 'function' ? options.points : () => options.points || 1;
 
-  return function(req, res, next) {
+  return function (req, res, next) {
     try {
-      const key = keyGenerator(req);
-      
+      const _key = keyGenerator(req);
+
       // Get the limiter from the parent middleware's Map
       // This assumes penalty is used after rate limit middleware
       if (req.rateLimiter) {
         const points = getPoints(req);
         const result = req.rateLimiter.penalty(points);
-        
+
         // Attach penalty info to request
         req.penaltyApplied = {
           points,
@@ -294,25 +296,26 @@ function applyPenalty(options = {}) {
 /**
  * Apply reward to a user's rate limit bucket
  * Adds tokens to the bucket, useful for rewarding good behavior
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Function} options.keyGenerator - Function to generate rate limit key from request
  * @param {number|Function} options.points - Number of tokens to add (default: 1)
  * @returns {Function} Express middleware that applies reward and continues
  */
 function applyReward(options = {}) {
-  const keyGenerator = options.keyGenerator || ((req) => req.ip || 'global');
-  const getPoints = typeof options.points === 'function' ? options.points : () => options.points || 1;
+  const keyGenerator = options.keyGenerator || (req => req.ip || 'global');
+  const getPoints =
+    typeof options.points === 'function' ? options.points : () => options.points || 1;
 
-  return function(req, res, next) {
+  return function (req, res, next) {
     try {
-      const key = keyGenerator(req);
-      
+      const _key = keyGenerator(req);
+
       // Get the limiter from the parent middleware's Map
       if (req.rateLimiter) {
         const points = getPoints(req);
         const result = req.rateLimiter.reward(points);
-        
+
         // Attach reward info to request
         req.rewardApplied = {
           points,

@@ -1,6 +1,6 @@
 /**
  * Default configuration values for Express middleware
- * 
+ *
  * This file contains all configurable defaults used by the rate limiting middleware.
  * You can override these by creating a custom configuration or using environment variables.
  */
@@ -53,10 +53,10 @@ const DEFAULT_RATE_LIMITS = {
 const DEFAULT_HEADERS = {
   // Use standard draft spec headers (RateLimit-*)
   standardHeaders: process.env.RATE_LIMIT_STANDARD_HEADERS !== 'false',
-  
+
   // Use legacy headers (X-RateLimit-*)
   legacyHeaders: process.env.RATE_LIMIT_LEGACY_HEADERS !== 'false',
-  
+
   // Include Retry-After header on 429 responses
   retryAfter: process.env.RATE_LIMIT_RETRY_AFTER_HEADER !== 'false'
 };
@@ -67,7 +67,7 @@ const DEFAULT_HEADERS = {
 const DEFAULT_COSTS = {
   // Default token cost per request
   default: Number.parseInt(process.env.RATE_LIMIT_DEFAULT_COST, 10) || 1,
-  
+
   // Cost tiers for common operations
   tiers: {
     read: Number.parseInt(process.env.RATE_LIMIT_COST_READ, 10) || 1,
@@ -85,10 +85,10 @@ const DEFAULT_COSTS = {
 const DEFAULT_REDIS = {
   // Key prefix for Redis keys
   keyPrefix: process.env.RATE_LIMIT_REDIS_KEY_PREFIX || 'ratelimit:',
-  
+
   // TTL for Redis keys (in seconds)
   ttl: Number.parseInt(process.env.RATE_LIMIT_REDIS_TTL, 10) || 3600,
-  
+
   // Fail-open on Redis errors (allow requests if Redis is down)
   failOpen: process.env.RATE_LIMIT_REDIS_FAIL_OPEN !== 'false'
 };
@@ -99,10 +99,10 @@ const DEFAULT_REDIS = {
 const DEFAULT_ERROR_HANDLING = {
   // HTTP status code for rate limit exceeded
   statusCode: Number.parseInt(process.env.RATE_LIMIT_ERROR_STATUS_CODE, 10) || 429,
-  
+
   // Default error message
   message: process.env.RATE_LIMIT_ERROR_MESSAGE || 'Too many requests, please try again later.',
-  
+
   // Include detailed error information in response
   includeDetails: process.env.RATE_LIMIT_ERROR_INCLUDE_DETAILS !== 'false'
 };
@@ -113,10 +113,10 @@ const DEFAULT_ERROR_HANDLING = {
 const DEFAULT_MONITORING = {
   // Enable logging of rate limit events
   enableLogging: process.env.RATE_LIMIT_ENABLE_LOGGING === 'true',
-  
+
   // Log level (error, warn, info, debug)
   logLevel: process.env.RATE_LIMIT_LOG_LEVEL || 'warn',
-  
+
   // Enable metrics collection
   enableMetrics: process.env.RATE_LIMIT_ENABLE_METRICS === 'true'
 };
@@ -126,30 +126,19 @@ const DEFAULT_MONITORING = {
  */
 const DEFAULT_SKIP_PATTERNS = {
   // Health check endpoints
-  healthChecks: [
-    '/health',
-    '/healthz',
-    '/ping',
-    '/status',
-    '/_health',
-    '/_internal/health'
-  ].concat((process.env.RATE_LIMIT_SKIP_HEALTH_CHECKS || '').split(',').filter(Boolean)),
-  
+  healthChecks: ['/health', '/healthz', '/ping', '/status', '/_health', '/_internal/health'].concat(
+    (process.env.RATE_LIMIT_SKIP_HEALTH_CHECKS || '').split(',').filter(Boolean)
+  ),
+
   // Internal endpoints
-  internal: [
-    '/_internal/',
-    '/_admin/',
-    '/_system/'
-  ].concat((process.env.RATE_LIMIT_SKIP_INTERNAL || '').split(',').filter(Boolean)),
-  
+  internal: ['/_internal/', '/_admin/', '/_system/'].concat(
+    (process.env.RATE_LIMIT_SKIP_INTERNAL || '').split(',').filter(Boolean)
+  ),
+
   // Static assets
-  static: [
-    '/static/',
-    '/assets/',
-    '/public/',
-    '/favicon.ico',
-    '/robots.txt'
-  ].concat((process.env.RATE_LIMIT_SKIP_STATIC || '').split(',').filter(Boolean))
+  static: ['/static/', '/assets/', '/public/', '/favicon.ico', '/robots.txt'].concat(
+    (process.env.RATE_LIMIT_SKIP_STATIC || '').split(',').filter(Boolean)
+  )
 };
 
 /**
@@ -163,14 +152,14 @@ const DEFAULT_TRUSTED_IPS = (process.env.RATE_LIMIT_TRUSTED_IPS || '')
 
 /**
  * Helper function to merge user config with defaults
- * 
+ *
  * @param {Object} userConfig - User-provided configuration
  * @param {Object} defaults - Default configuration
  * @returns {Object} Merged configuration
  */
 function mergeWithDefaults(userConfig = {}, defaults = {}) {
   const merged = { ...defaults };
-  
+
   for (const [key, value] of Object.entries(userConfig)) {
     if (value !== undefined && value !== null) {
       if (typeof value === 'object' && !Array.isArray(value) && typeof defaults[key] === 'object') {
@@ -180,13 +169,13 @@ function mergeWithDefaults(userConfig = {}, defaults = {}) {
       }
     }
   }
-  
+
   return merged;
 }
 
 /**
  * Get complete configuration with defaults applied
- * 
+ *
  * @param {Object} userConfig - User-provided configuration
  * @returns {Object} Complete configuration
  */
@@ -205,7 +194,7 @@ function getConfig(userConfig = {}) {
 
 /**
  * Check if a request should be skipped based on default patterns
- * 
+ *
  * @param {Object} req - Express request object
  * @param {Object} config - Configuration object
  * @returns {boolean} True if request should skip rate limiting
@@ -214,19 +203,19 @@ function shouldSkipByDefault(req, config = {}) {
   const fullConfig = getConfig(config);
   const path = req.path || req.url;
   const ip = req.ip;
-  
+
   // Check trusted IPs
   if (fullConfig.trustedIps.includes(ip)) {
     return true;
   }
-  
+
   // Check skip patterns
   const allPatterns = [
     ...fullConfig.skipPatterns.healthChecks,
     ...fullConfig.skipPatterns.internal,
     ...fullConfig.skipPatterns.static
   ];
-  
+
   return allPatterns.some(pattern => {
     if (pattern.endsWith('/')) {
       return path.startsWith(pattern);

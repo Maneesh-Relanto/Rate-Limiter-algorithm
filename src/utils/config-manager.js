@@ -1,6 +1,6 @@
 /**
  * Configuration Manager for Rate Limiting
- * 
+ *
  * Loads and manages rate limit configurations from multiple sources:
  * - JSON configuration files
  * - Environment variables
@@ -23,10 +23,13 @@ class ConfigManager {
    */
   _loadConfig() {
     try {
+      // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: configPath is controlled by application, not user input
       const configData = fs.readFileSync(this.configPath, 'utf8');
       return JSON.parse(configData);
     } catch (error) {
-      console.warn(`Warning: Could not load config from ${this.configPath}, using defaults. Error: ${error.message}`);
+      console.warn(
+        `Warning: Could not load config from ${this.configPath}, using defaults. Error: ${error.message}`
+      );
       return this._getDefaultConfig();
     }
   }
@@ -54,10 +57,10 @@ class ConfigManager {
 
   /**
    * Get rate limit configuration by name/path
-   * 
+   *
    * @param {string} name - Configuration name (e.g., 'api.free', 'authentication.login')
    * @returns {Object} Rate limit configuration
-   * 
+   *
    * @example
    * const config = manager.getRateLimit('api.free');
    * // Returns: { capacity: 100, refillRate: 1.67, description: '...' }
@@ -77,7 +80,7 @@ class ConfigManager {
 
     // Apply environment multiplier
     const envMultiplier = this._getEnvironmentMultiplier();
-    
+
     return {
       capacity: Math.ceil(config.capacity * envMultiplier),
       refillRate: config.refillRate * envMultiplier,
@@ -97,11 +100,11 @@ class ConfigManager {
 
   /**
    * Get rate limit from environment variable
-   * 
+   *
    * @param {string} envVar - Environment variable name
    * @param {string} fallbackConfig - Fallback config name if env var not set
    * @returns {Object} Rate limit configuration
-   * 
+   *
    * @example
    * // Set: RATE_LIMIT_CAPACITY=200 RATE_LIMIT_REFILL=20
    * const config = manager.getRateLimitFromEnv('RATE_LIMIT');
@@ -125,16 +128,16 @@ class ConfigManager {
 
   /**
    * List all available configurations
-   * 
+   *
    * @returns {Array} List of configuration names and descriptions
    */
   listConfigurations() {
     const configs = [];
-    
+
     const traverse = (obj, prefix = '') => {
       for (const key in obj) {
         const fullPath = prefix ? `${prefix}.${key}` : key;
-        
+
         if (obj[key].capacity !== undefined) {
           configs.push({
             name: fullPath,
@@ -155,7 +158,7 @@ class ConfigManager {
 
   /**
    * Set environment (for testing purposes)
-   * 
+   *
    * @param {string} env - Environment name ('development', 'staging', 'production')
    */
   setEnvironment(env) {
@@ -183,7 +186,7 @@ let instance = null;
 
 /**
  * Get or create ConfigManager instance
- * 
+ *
  * @param {string} configPath - Optional custom config path
  * @returns {ConfigManager} ConfigManager instance
  */

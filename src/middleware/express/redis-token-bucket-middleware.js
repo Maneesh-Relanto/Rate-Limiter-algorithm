@@ -1,14 +1,14 @@
 /**
  * Express Middleware for Redis Token Bucket Rate Limiting
- * 
+ *
  * Provides distributed rate limiting across multiple servers using Redis.
  * Supports per-user, per-IP, and custom key strategies.
  * Adds standard rate limit headers to responses.
- * 
+ *
  * @example
  * const Redis = require('ioredis');
  * const { redisTokenBucketMiddleware } = require('./middleware/express/redis-token-bucket-middleware');
- * 
+ *
  * const redis = new Redis();
  * app.use(redisTokenBucketMiddleware({
  *   redis,
@@ -19,11 +19,16 @@
  */
 
 const RedisTokenBucket = require('../../algorithms/javascript/redis-token-bucket');
-const { DEFAULT_HEADERS, DEFAULT_REDIS, DEFAULT_RATE_LIMITS, shouldSkipByDefault } = require('./defaults');
+const {
+  DEFAULT_HEADERS,
+  DEFAULT_REDIS,
+  DEFAULT_RATE_LIMITS,
+  shouldSkipByDefault
+} = require('./defaults');
 
 /**
  * Create distributed rate limiting middleware for Express
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Object} options.redis - Redis client instance
  * @param {number} options.capacity - Maximum tokens in bucket
@@ -55,11 +60,12 @@ function redisTokenBucketMiddleware(options = {}) {
     refillInterval: options.refillInterval || 1000,
     prefix: options.prefix || DEFAULT_REDIS.keyPrefix,
     ttl: options.ttl || DEFAULT_REDIS.ttl,
-    keyGenerator: options.keyGenerator || ((req) => req.ip || 'global'),
+    keyGenerator: options.keyGenerator || (req => req.ip || 'global'),
     handler: options.handler || defaultHandler,
-    skip: options.skip || ((req) => shouldSkipByDefault(req, options.config)),
+    skip: options.skip || (req => shouldSkipByDefault(req, options.config)),
     headers: {
-      standard: options.headers?.standard ?? options.standardHeaders ?? DEFAULT_HEADERS.standardHeaders,
+      standard:
+        options.headers?.standard ?? options.standardHeaders ?? DEFAULT_HEADERS.standardHeaders,
       legacy: options.headers?.legacy ?? options.legacyHeaders ?? DEFAULT_HEADERS.legacyHeaders
     },
     onLimitReached: options.onLimitReached || (() => {}),
@@ -74,15 +80,14 @@ function redisTokenBucketMiddleware(options = {}) {
    */
   function getLimiter(key) {
     const redisKey = `${config.prefix}${key}`;
-    
+
     if (!limiters.has(key)) {
-      limiters.set(key, new RedisTokenBucket(
-        config.redis,
-        redisKey,
-        config.capacity,
-        config.refillRate,
-        { ttl: config.ttl }
-      ));
+      limiters.set(
+        key,
+        new RedisTokenBucket(config.redis, redisKey, config.capacity, config.refillRate, {
+          ttl: config.ttl
+        })
+      );
     }
     return limiters.get(key);
   }
@@ -136,10 +141,10 @@ function redisTokenBucketMiddleware(options = {}) {
         return next();
       } else {
         // Rate limit exceeded
-        const retryAfter = Math.ceil(await limiter.getTimeUntilNextToken(tokenCost) / 1000);
-        
+        const retryAfter = Math.ceil((await limiter.getTimeUntilNextToken(tokenCost)) / 1000);
+
         res.setHeader('Retry-After', retryAfter);
-        
+
         // Call onLimitReached callback
         config.onLimitReached(req, res);
 
@@ -167,7 +172,7 @@ function defaultHandler(req, res) {
 
 /**
  * Create middleware with per-user rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Function} options.getUserId - Function to extract user ID from request
  * @param {boolean} options.fallbackToIp - Fall back to IP if no user ID (default: false)
@@ -185,7 +190,7 @@ function perUserRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => {
+    keyGenerator: req => {
       const userId = options.getUserId(req);
       if (userId) {
         return `user:${userId}`;
@@ -197,7 +202,7 @@ function perUserRateLimit(options = {}) {
 
 /**
  * Create middleware with per-IP rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -209,13 +214,13 @@ function perIpRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => `ip:${req.ip}`
+    keyGenerator: req => `ip:${req.ip}`
   });
 }
 
 /**
  * Create middleware with per-endpoint rate limiting
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -227,7 +232,7 @@ function perEndpointRateLimit(options = {}) {
     refillRate: options.refillRate || defaults.refillRate,
     refillInterval: options.refillInterval || defaults.refillInterval,
     ...options,
-    keyGenerator: (req) => {
+    keyGenerator: req => {
       const userId = options.getUserId?.(req) || req.ip;
       return `${req.method}:${req.path}:${userId}`;
     }
@@ -236,7 +241,7 @@ function perEndpointRateLimit(options = {}) {
 
 /**
  * Create global rate limiter (single bucket for all requests)
- * 
+ *
  * @param {Object} options - Configuration options
  * @returns {Function} Express middleware
  */
@@ -255,12 +260,12 @@ function globalRateLimit(options = {}) {
 /**
  * Cost-based rate limiting helper
  * Sets token cost for the request based on operation type
- * 
+ *
  * @param {number|Function} cost - Number of tokens this request costs, or function that returns cost
  * @returns {Function} Express middleware
  */
 function setRequestCost(cost) {
-  return function(req, res, next) {
+  return function (req, res, next) {
     req.tokenCost = typeof cost === 'function' ? cost(req) : cost;
     next();
   };
@@ -268,7 +273,7 @@ function setRequestCost(cost) {
 
 /**
  * Health check middleware for Redis connection
- * 
+ *
  * @param {Object} options - Configuration options
  * @param {Object} options.redis - Redis client instance
  * @returns {Function} Express middleware
@@ -278,7 +283,7 @@ function redisHealthCheck(options = {}) {
     throw new Error('Redis client is required');
   }
 
-  return async function(req, res, next) {
+  return async function (req, res, next) {
     try {
       const result = await options.redis.ping();
       req.redisHealthy = result === 'PONG' || result === true;

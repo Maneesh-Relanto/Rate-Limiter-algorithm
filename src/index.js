@@ -23,7 +23,7 @@ module.exports = {
   // Algorithms
   TokenBucket,
   RedisTokenBucket,
-  
+
   // Middleware
   tokenBucketMiddleware,
   redisTokenBucketMiddleware,
@@ -33,7 +33,7 @@ module.exports = {
   globalRateLimit,
   redisHealthCheck,
   defaultMiddlewareOptions,
-  
+
   // Utilities
   ConfigManager,
   loadConfig: ConfigManager.loadConfig

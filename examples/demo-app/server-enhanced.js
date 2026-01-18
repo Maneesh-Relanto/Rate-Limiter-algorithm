@@ -1,6 +1,6 @@
 /**
  * Rate Limiter Demo Application - Enhanced Interactive Backend
- * 
+ *
  * Comprehensive demonstration of ALL rate limiting features:
  * ✅ In-memory token bucket & Redis distributed
  * ✅ Penalty & Reward system (adaptive behavior)
@@ -21,8 +21,6 @@ const TokenBucket = require('../../src/algorithms/javascript/token-bucket');
 const {
   tokenBucketMiddleware,
   perIpRateLimit,
-  perUserRateLimit,
-  globalRateLimit,
   setRequestCost
 } = require('../../src/middleware/express/token-bucket-middleware');
 
@@ -58,16 +56,16 @@ function getLimiter(key, options = {}) {
       options.refillRate || 1,
       options.refillInterval || 1000
     );
-    
+
     // Attach event listeners for monitoring
-    limiter.on('allowed', (data) => logEvent('allowed', key, data));
-    limiter.on('rateLimitExceeded', (data) => logEvent('rateLimitExceeded', key, data));
-    limiter.on('penalty', (data) => logEvent('penalty', key, data));
-    limiter.on('reward', (data) => logEvent('reward', key, data));
-    limiter.on('blocked', (data) => logEvent('blocked', key, data));
-    limiter.on('unblocked', (data) => logEvent('unblocked', key, data));
-    limiter.on('reset', (data) => logEvent('reset', key, data));
-    
+    limiter.on('allowed', data => logEvent('allowed', key, data));
+    limiter.on('rateLimitExceeded', data => logEvent('rateLimitExceeded', key, data));
+    limiter.on('penalty', data => logEvent('penalty', key, data));
+    limiter.on('reward', data => logEvent('reward', key, data));
+    limiter.on('blocked', data => logEvent('blocked', key, data));
+    limiter.on('unblocked', data => logEvent('unblocked', key, data));
+    limiter.on('reset', data => logEvent('reset', key, data));
+
     limiters.set(key, limiter);
   }
   return limiters.get(key);
@@ -77,7 +75,7 @@ function getLimiter(key, options = {}) {
 function logEvent(type, key, data) {
   metrics.eventsEmitted++;
   metrics.eventsByType[type] = (metrics.eventsByType[type] || 0) + 1;
-  
+
   const event = {
     id: Date.now() + Math.random(),
     type,
@@ -85,7 +83,7 @@ function logEvent(type, key, data) {
     timestamp: Date.now(),
     data
   };
-  
+
   eventLogs.unshift(event);
   if (eventLogs.length > 100) {
     eventLogs.pop();
@@ -95,19 +93,19 @@ function logEvent(type, key, data) {
 // Helper to track metrics
 function trackMetric(endpoint, allowed, reason = '') {
   metrics.totalRequests++;
-  
+
   if (allowed) {
     metrics.allowedRequests++;
   } else {
     metrics.blockedRequests++;
   }
-  
+
   if (!metrics.requestsByEndpoint[endpoint]) {
     metrics.requestsByEndpoint[endpoint] = { allowed: 0, blocked: 0 };
   }
-  
+
   metrics.requestsByEndpoint[endpoint][allowed ? 'allowed' : 'blocked']++;
-  
+
   metrics.recentEvents.unshift({
     timestamp: Date.now(),
     endpoint,
@@ -115,7 +113,7 @@ function trackMetric(endpoint, allowed, reason = '') {
     reason,
     ip: 'client'
   });
-  
+
   if (metrics.recentEvents.length > 50) {
     metrics.recentEvents.pop();
   }
@@ -124,8 +122,12 @@ function trackMetric(endpoint, allowed, reason = '') {
 // Middleware to track all requests
 app.use((req, res, next) => {
   const originalSend = res.send;
-  res.send = function(data) {
-    trackMetric(req.path, res.statusCode !== 429, res.statusCode === 429 ? 'Rate limit exceeded' : 'Success');
+  res.send = function (data) {
+    trackMetric(
+      req.path,
+      res.statusCode !== 429,
+      res.statusCode === 429 ? 'Rate limit exceeded' : 'Success'
+    );
     originalSend.call(this, data);
   };
   next();
@@ -136,45 +138,54 @@ app.use((req, res, next) => {
 // ============================================
 
 // 1. Per-IP Rate Limiting
-app.get('/api/basic', perIpRateLimit({
-  capacity: 10,
-  refillRate: 10,
-  refillInterval: 60000
-}), (req, res) => {
-  res.json({
-    success: true,
-    message: 'Request successful!',
-    rateLimit: req.rateLimit,
-    endpoint: '/api/basic',
-    strategy: 'Per-IP Rate Limiting (10 req/min)',
-    feature: 'Basic Token Bucket'
-  });
-});
+app.get(
+  '/api/basic',
+  perIpRateLimit({
+    capacity: 10,
+    refillRate: 10,
+    refillInterval: 60000
+  }),
+  (req, res) => {
+    res.json({
+      success: true,
+      message: 'Request successful!',
+      rateLimit: req.rateLimit,
+      endpoint: '/api/basic',
+      strategy: 'Per-IP Rate Limiting (10 req/min)',
+      feature: 'Basic Token Bucket'
+    });
+  }
+);
 
 // 2. Strict Rate Limiting
-app.get('/api/strict', perIpRateLimit({
-  capacity: 3,
-  refillRate: 1,
-  refillInterval: 60000
-}), (req, res) => {
-  res.json({
-    success: true,
-    message: 'Strict endpoint accessed',
-    rateLimit: req.rateLimit,
-    endpoint: '/api/strict',
-    strategy: 'Strict Rate Limiting (3 requests, slow refill)',
-    feature: 'Token Bucket with Strict Limits'
-  });
-});
+app.get(
+  '/api/strict',
+  perIpRateLimit({
+    capacity: 3,
+    refillRate: 1,
+    refillInterval: 60000
+  }),
+  (req, res) => {
+    res.json({
+      success: true,
+      message: 'Strict endpoint accessed',
+      rateLimit: req.rateLimit,
+      endpoint: '/api/strict',
+      strategy: 'Strict Rate Limiting (3 requests, slow refill)',
+      feature: 'Token Bucket with Strict Limits'
+    });
+  }
+);
 
 // 3. Cost-Based Rate Limiting
-app.get('/api/cost-light', 
+app.get(
+  '/api/cost-light',
   setRequestCost(1),
   tokenBucketMiddleware({
     capacity: 20,
     refillRate: 5,
     refillInterval: 1000
-  }), 
+  }),
   (req, res) => {
     res.json({
       success: true,
@@ -188,13 +199,14 @@ app.get('/api/cost-light',
   }
 );
 
-app.get('/api/cost-heavy', 
+app.get(
+  '/api/cost-heavy',
   setRequestCost(5),
   tokenBucketMiddleware({
     capacity: 20,
     refillRate: 5,
     refillInterval: 1000
-  }), 
+  }),
   (req, res) => {
     res.json({
       success: true,
@@ -216,10 +228,10 @@ app.get('/api/cost-heavy',
 app.post('/api/penalty/apply', (req, res) => {
   const { key = 'demo-user', amount = 5 } = req.body;
   const limiter = getLimiter(key, { capacity: 20, refillRate: 2 });
-  
+
   const result = limiter.penalty(amount);
   metrics.penaltiesApplied++;
-  
+
   res.json({
     success: true,
     message: `Penalty applied: ${result.tokensRemoved} tokens removed`,
@@ -234,10 +246,10 @@ app.post('/api/penalty/apply', (req, res) => {
 app.post('/api/reward/apply', (req, res) => {
   const { key = 'demo-user', amount = 5 } = req.body;
   const limiter = getLimiter(key, { capacity: 20, refillRate: 2 });
-  
+
   const result = limiter.reward(amount);
   metrics.rewardsApplied++;
-  
+
   res.json({
     success: true,
     message: `Reward applied: ${result.tokensAdded} tokens added`,
@@ -252,10 +264,10 @@ app.post('/api/reward/apply', (req, res) => {
 app.post('/api/adaptive/submit', (req, res) => {
   const { message, userId = 'demo-user' } = req.body;
   const limiter = getLimiter(`adaptive:${userId}`, { capacity: 10, refillRate: 1 });
-  
+
   // Check if request allowed
   const check = limiter.allowRequest(1);
-  
+
   if (!check.allowed) {
     return res.status(429).json({
       success: false,
@@ -264,16 +276,16 @@ app.post('/api/adaptive/submit', (req, res) => {
       feature: 'Adaptive Rate Limiting'
     });
   }
-  
+
   // Detect spam patterns
   const isSpam = /spam|buy now|click here|viagra/i.test(message);
   const isShortMessage = message && message.length < 10;
-  
+
   if (isSpam) {
     // Severe penalty for spam
     const penalty = limiter.penalty(5);
     metrics.penaltiesApplied++;
-    
+
     return res.json({
       success: true,
       message: 'Message flagged as spam',
@@ -284,12 +296,12 @@ app.post('/api/adaptive/submit', (req, res) => {
       feature: '🎯 UNIQUE: Adaptive Behavior (Penalty)'
     });
   }
-  
+
   if (isShortMessage) {
     // Small penalty for low-quality content
     const penalty = limiter.penalty(2);
     metrics.penaltiesApplied++;
-    
+
     return res.json({
       success: true,
       message: 'Message too short',
@@ -300,12 +312,12 @@ app.post('/api/adaptive/submit', (req, res) => {
       feature: 'Adaptive Behavior (Penalty)'
     });
   }
-  
+
   // Good quality message - reward!
   if (message && message.length > 50) {
     const reward = limiter.reward(2);
     metrics.rewardsApplied++;
-    
+
     return res.json({
       success: true,
       message: 'High-quality message accepted',
@@ -316,7 +328,7 @@ app.post('/api/adaptive/submit', (req, res) => {
       feature: '🎯 UNIQUE: Adaptive Behavior (Reward)'
     });
   }
-  
+
   res.json({
     success: true,
     message: 'Message accepted',
@@ -334,10 +346,10 @@ app.post('/api/adaptive/submit', (req, res) => {
 app.post('/api/block/apply', (req, res) => {
   const { key = 'demo-user', duration = 10000 } = req.body;
   const limiter = getLimiter(key, { capacity: 10, refillRate: 1 });
-  
+
   const result = limiter.block(duration);
   metrics.blocksApplied++;
-  
+
   res.json({
     success: true,
     message: `User blocked for ${duration}ms`,
@@ -353,9 +365,9 @@ app.post('/api/block/apply', (req, res) => {
 app.post('/api/block/remove', (req, res) => {
   const { key = 'demo-user' } = req.body;
   const limiter = getLimiter(key);
-  
+
   const result = limiter.unblock();
-  
+
   res.json({
     success: true,
     message: 'User unblocked',
@@ -370,10 +382,10 @@ app.post('/api/block/remove', (req, res) => {
 app.get('/api/block/status/:key', (req, res) => {
   const { key } = req.params;
   const limiter = getLimiter(key);
-  
+
   const isBlocked = limiter.isBlocked();
   const remaining = limiter.getBlockTimeRemaining();
-  
+
   res.json({
     key,
     isBlocked,
@@ -387,8 +399,12 @@ app.get('/api/block/status/:key', (req, res) => {
 // 10. Failed Login Protection Demo
 app.post('/api/auth/login', (req, res) => {
   const { username, password } = req.body;
-  const limiter = getLimiter(`login:${username}`, { capacity: 5, refillRate: 1, refillInterval: 60000 });
-  
+  const limiter = getLimiter(`login:${username}`, {
+    capacity: 5,
+    refillRate: 1,
+    refillInterval: 60000
+  });
+
   // Check if blocked
   if (limiter.isBlocked()) {
     const remaining = limiter.getBlockTimeRemaining();
@@ -401,14 +417,14 @@ app.post('/api/auth/login', (req, res) => {
       feature: '🎯 UNIQUE: Security Block'
     });
   }
-  
+
   // Check rate limit
   const check = limiter.allowRequest();
   if (!check.allowed) {
     // Too many attempts - block for 5 minutes
     limiter.block(5 * 60 * 1000);
     metrics.blocksApplied++;
-    
+
     return res.status(429).json({
       success: false,
       error: 'Too many login attempts',
@@ -417,10 +433,10 @@ app.post('/api/auth/login', (req, res) => {
       feature: '🎯 Security Block (Auto-applied)'
     });
   }
-  
+
   // Simulate login check
   const validPassword = password === 'correct123';
-  
+
   if (!validPassword) {
     return res.json({
       success: false,
@@ -429,10 +445,10 @@ app.post('/api/auth/login', (req, res) => {
       feature: 'Failed Login Protection'
     });
   }
-  
+
   // Successful login - reset limiter
   limiter.reset();
-  
+
   res.json({
     success: true,
     message: 'Login successful',
@@ -449,11 +465,11 @@ app.post('/api/auth/login', (req, res) => {
 app.get('/api/state/:key', (req, res) => {
   const { key } = req.params;
   const limiter = getLimiter(key);
-  
+
   const state = limiter.getState();
   const availableTokens = limiter.getAvailableTokens();
   const timeUntilNext = limiter.getTimeUntilNextToken();
-  
+
   res.json({
     key,
     state,
@@ -468,19 +484,22 @@ app.get('/api/state/:key', (req, res) => {
 app.post('/api/state/save/:key', (req, res) => {
   const { key } = req.params;
   const limiter = getLimiter(key);
-  
+
   const serialized = limiter.toJSON();
   const filename = `limiter-state-${key}.json`;
   const filepath = path.join(__dirname, 'saved-states', filename);
-  
+
   // Ensure directory exists
   const dir = path.dirname(filepath);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: filepath constructed from __dirname + sanitized key + .json extension
   if (!fs.existsSync(dir)) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: controlled directory path
     fs.mkdirSync(dir, { recursive: true });
   }
-  
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: filepath is validated and uses sanitized key parameter
   fs.writeFileSync(filepath, JSON.stringify(serialized, null, 2));
-  
+
   res.json({
     success: true,
     message: 'Limiter state saved',
@@ -496,7 +515,8 @@ app.post('/api/state/restore/:key', (req, res) => {
   const { key } = req.params;
   const filename = `limiter-state-${key}.json`;
   const filepath = path.join(__dirname, 'saved-states', filename);
-  
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: filepath uses sanitized key + .json extension
   if (!fs.existsSync(filepath)) {
     return res.status(404).json({
       success: false,
@@ -504,12 +524,13 @@ app.post('/api/state/restore/:key', (req, res) => {
       key
     });
   }
-  
+
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- Safe: filepath validated to exist and uses controlled directory
   const serialized = JSON.parse(fs.readFileSync(filepath, 'utf8'));
   const limiter = TokenBucket.fromJSON(serialized);
-  
+
   limiters.set(key, limiter);
-  
+
   res.json({
     success: true,
     message: 'Limiter state restored',
@@ -523,26 +544,26 @@ app.post('/api/state/restore/:key', (req, res) => {
 app.post('/api/manual/tokens', (req, res) => {
   const { key = 'demo-user', action, amount = 1 } = req.body;
   const limiter = getLimiter(key, { capacity: 20, refillRate: 2 });
-  
+
   let result;
-  
-  switch(action) {
-    case 'consume':
-      result = limiter.allowRequest(amount);
-      break;
-    case 'add':
-      result = limiter.reward(amount);
-      break;
-    case 'remove':
-      result = limiter.penalty(amount);
-      break;
-    case 'reset':
-      result = limiter.reset();
-      break;
-    default:
-      return res.status(400).json({ error: 'Invalid action' });
+
+  switch (action) {
+  case 'consume':
+    result = limiter.allowRequest(amount);
+    break;
+  case 'add':
+    result = limiter.reward(amount);
+    break;
+  case 'remove':
+    result = limiter.penalty(amount);
+    break;
+  case 'reset':
+    result = limiter.reset();
+    break;
+  default:
+    return res.status(400).json({ error: 'Invalid action' });
   }
-  
+
   res.json({
     success: true,
     action,
@@ -560,13 +581,13 @@ app.post('/api/manual/tokens', (req, res) => {
 // 15. Get Event Logs
 app.get('/api/events', (req, res) => {
   const { type, limit = 50 } = req.query;
-  
+
   let events = eventLogs;
-  
+
   if (type) {
     events = events.filter(e => e.type === type);
   }
-  
+
   res.json({
     events: events.slice(0, parseInt(limit)),
     totalEvents: eventLogs.length,
@@ -580,10 +601,10 @@ app.get('/api/events/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  
+
   // Send initial connection event
   res.write(`data: ${JSON.stringify({ type: 'connected', timestamp: Date.now() })}\n\n`);
-  
+
   // Track this connection
   const interval = setInterval(() => {
     if (eventLogs.length > 0) {
@@ -591,7 +612,7 @@ app.get('/api/events/stream', (req, res) => {
       res.write(`data: ${JSON.stringify(latestEvent)}\n\n`);
     }
   }, 1000);
-  
+
   req.on('close', () => {
     clearInterval(interval);
   });
@@ -630,7 +651,7 @@ app.post('/api/metrics/reset', (req, res) => {
   metrics.recentEvents = [];
   metrics.eventsByType = {};
   eventLogs.length = 0;
-  
+
   res.json({
     success: true,
     message: 'Metrics reset successfully'
@@ -661,7 +682,12 @@ app.get('/api/info', (req, res) => {
       adaptive: [
         { path: '/api/penalty/apply', method: 'POST', feature: '🎯 Penalty System', unique: true },
         { path: '/api/reward/apply', method: 'POST', feature: '🎯 Reward System', unique: true },
-        { path: '/api/adaptive/submit', method: 'POST', feature: '🎯 Adaptive Behavior', unique: true }
+        {
+          path: '/api/adaptive/submit',
+          method: 'POST',
+          feature: '🎯 Adaptive Behavior',
+          unique: true
+        }
       ],
       blocking: [
         { path: '/api/block/apply', method: 'POST', feature: '🎯 Block Duration', unique: true },
@@ -672,7 +698,12 @@ app.get('/api/info', (req, res) => {
       persistence: [
         { path: '/api/state/:key', method: 'GET', feature: 'State Inspection' },
         { path: '/api/state/save/:key', method: 'POST', feature: '🎯 Save State', unique: true },
-        { path: '/api/state/restore/:key', method: 'POST', feature: '🎯 Restore State', unique: true },
+        {
+          path: '/api/state/restore/:key',
+          method: 'POST',
+          feature: '🎯 Restore State',
+          unique: true
+        },
         { path: '/api/manual/tokens', method: 'POST', feature: '🎯 Manual Control', unique: true }
       ],
       events: [
@@ -707,7 +738,7 @@ app.get('/', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Error:', err);
   res.status(500).json({
     error: 'Internal Server Error',

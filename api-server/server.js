@@ -1,9 +1,9 @@
 /**
  * Rate Limiter REST API Server
- * 
+ *
  * Language-agnostic rate limiting via HTTP API
  * Supports: Python, Java, Go, PHP, Ruby, C#, and any HTTP client
- * 
+ *
  * @author Rate Limiter Contributors
  * @license MIT
  */
@@ -43,7 +43,7 @@ const limiters = new Map();
 const limiterConfigs = new Map();
 
 // Metrics
-let metrics = {
+const metrics = {
   totalRequests: 0,
   allowedRequests: 0,
   blockedRequests: 0,
@@ -88,9 +88,10 @@ app.get('/api/health', (req, res) => {
  * GET /api/metrics
  */
 app.get('/api/metrics', (req, res) => {
-  const successRate = metrics.totalRequests > 0 
-    ? ((metrics.allowedRequests / metrics.totalRequests) * 100).toFixed(2)
-    : 100;
+  const successRate =
+    metrics.totalRequests > 0
+      ? ((metrics.allowedRequests / metrics.totalRequests) * 100).toFixed(2)
+      : 100;
 
   res.json({
     ...metrics,
@@ -103,7 +104,7 @@ app.get('/api/metrics', (req, res) => {
 /**
  * Check Rate Limit
  * POST /api/v1/limiter/check
- * 
+ *
  * Body:
  * {
  *   "key": "user-123",
@@ -157,7 +158,7 @@ app.post('/api/v1/limiter/check', (req, res) => {
 /**
  * Apply Penalty
  * POST /api/v1/limiter/penalty
- * 
+ *
  * Body:
  * {
  *   "key": "user-123",
@@ -199,7 +200,7 @@ app.post('/api/v1/limiter/penalty', (req, res) => {
 /**
  * Apply Reward
  * POST /api/v1/limiter/reward
- * 
+ *
  * Body:
  * {
  *   "key": "user-123",
@@ -242,7 +243,7 @@ app.post('/api/v1/limiter/reward', (req, res) => {
 /**
  * Block a Key
  * POST /api/v1/limiter/block
- * 
+ *
  * Body:
  * {
  *   "key": "user-123",
@@ -284,7 +285,7 @@ app.post('/api/v1/limiter/block', (req, res) => {
 /**
  * Unblock a Key
  * POST /api/v1/limiter/unblock
- * 
+ *
  * Body:
  * {
  *   "key": "user-123"
@@ -339,7 +340,7 @@ app.get('/api/v1/limiter/status/:key', (req, res) => {
     }
 
     const limiter = getLimiter(key);
-    const state = limiter.getState(true);  // Get detailed state with isBlocked
+    const state = limiter.getState(true); // Get detailed state with isBlocked
     const config = limiterConfigs.get(key);
 
     res.json({
@@ -486,7 +487,7 @@ app.use((req, res) => {
 });
 
 // Global error handler
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,

@@ -3,10 +3,10 @@ const TokenBucket = require('./token-bucket');
 
 /**
  * Redis-based Token Bucket Rate Limiting Algorithm
- * 
+ *
  * Distributed implementation using Redis for shared state across multiple servers.
  * Uses Lua scripts for atomic operations to prevent race conditions.
- * 
+ *
  * Events emitted (inherits all from TokenBucket):
  * - 'allowed': Request was allowed
  * - 'rateLimitExceeded': Request was denied
@@ -18,7 +18,7 @@ const TokenBucket = require('./token-bucket');
  * - 'insuranceActivated': Failover to in-memory limiter { reason, timestamp }
  * - 'insuranceDeactivated': Returned to Redis { reason, timestamp }
  * - 'redisError': Redis operation failed { operation, error, timestamp }
- * 
+ *
  * @example
  * const limiter = new RedisTokenBucket(redisClient, 'user:123', 100, 10);
  * limiter.on('insuranceActivated', (data) => {
@@ -33,7 +33,7 @@ const TokenBucket = require('./token-bucket');
 class RedisTokenBucket extends EventEmitter {
   /**
    * Creates a new Redis-based Token Bucket rate limiter
-   * 
+   *
    * @param {Object} redisClient - Redis client instance (ioredis or node-redis compatible)
    * @param {string} key - Redis key for storing bucket state
    * @param {number} capacity - Maximum number of tokens the bucket can hold
@@ -72,24 +72,39 @@ class RedisTokenBucket extends EventEmitter {
     this.insuranceActive = false;
     this.redisFailureCount = 0;
     this.lastRedisSuccess = Date.now();
-    
+
     // Initialize insurance limiter if enabled
     if (this.insuranceEnabled) {
-      const insuranceCapacity = options.insuranceCapacity || Math.max(1, Math.floor(capacity * 0.1));
+      const insuranceCapacity =
+        options.insuranceCapacity || Math.max(1, Math.floor(capacity * 0.1));
       const insuranceRefillRate = options.insuranceRefillRate || Math.max(0.1, refillRate * 0.1);
-      
+
       this.insuranceLimiter = new TokenBucket(insuranceCapacity, insuranceRefillRate);
       this.insuranceCapacity = insuranceCapacity;
       this.insuranceRefillRate = insuranceRefillRate;
-      
+
       // Forward insurance limiter events
-      this.insuranceLimiter.on('allowed', (data) => this.emit('allowed', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('rateLimitExceeded', (data) => this.emit('rateLimitExceeded', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('penalty', (data) => this.emit('penalty', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('reward', (data) => this.emit('reward', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('blocked', (data) => this.emit('blocked', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('unblocked', (data) => this.emit('unblocked', { ...data, source: 'insurance' }));
-      this.insuranceLimiter.on('reset', (data) => this.emit('reset', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('allowed', data =>
+        this.emit('allowed', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('rateLimitExceeded', data =>
+        this.emit('rateLimitExceeded', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('penalty', data =>
+        this.emit('penalty', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('reward', data =>
+        this.emit('reward', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('blocked', data =>
+        this.emit('blocked', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('unblocked', data =>
+        this.emit('unblocked', { ...data, source: 'insurance' })
+      );
+      this.insuranceLimiter.on('reset', data =>
+        this.emit('reset', { ...data, source: 'insurance' })
+      );
     }
 
     // Define Lua script for atomic token bucket operations
@@ -139,10 +154,10 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Attempts to consume tokens for a request
-   * 
+   *
    * @param {number} tokensRequired - Number of tokens to consume (default: 1)
    * @returns {Promise<boolean>} True if request allowed, false otherwise
-   * 
+   *
    * @example
    * const allowed = await limiter.allowRequest(5);
    */
@@ -168,7 +183,7 @@ class RedisTokenBucket extends EventEmitter {
       }
 
       const result = await this._executeScript(tokensRequired);
-      
+
       // Redis success - reset failure tracking
       if (this.insuranceEnabled) {
         this.redisFailureCount = 0;
@@ -184,10 +199,10 @@ class RedisTokenBucket extends EventEmitter {
           });
         }
       }
-      
+
       const allowed = result[0] === 1;
       const tokens = Math.floor(result[1]);
-      
+
       if (allowed) {
         this.emit('allowed', {
           tokens,
@@ -207,23 +222,23 @@ class RedisTokenBucket extends EventEmitter {
           timestamp: Date.now()
         });
       }
-      
+
       return allowed;
     } catch (error) {
       console.error('Redis error in allowRequest:', error.message);
-      
+
       this.emit('redisError', {
         operation: 'allowRequest',
         error: error.message,
         timestamp: Date.now()
       });
-      
+
       // Use insurance limiter if enabled
       if (this.insuranceEnabled && this.insuranceLimiter) {
         this.redisFailureCount++;
         const wasActive = this.insuranceActive;
         this.insuranceActive = true;
-        
+
         if (!wasActive) {
           this.emit('insuranceActivated', {
             reason: 'redis_error',
@@ -232,11 +247,11 @@ class RedisTokenBucket extends EventEmitter {
             timestamp: Date.now()
           });
         }
-        
+
         const allowed = this.insuranceLimiter.allowRequest(tokensRequired);
         return allowed;
       }
-      
+
       // Fail open: allow request on Redis errors to prevent complete outage
       return true;
     }
@@ -244,7 +259,7 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Get available tokens without consuming
-   * 
+   *
    * @returns {Promise<number>} Number of available tokens
    */
   async getAvailableTokens() {
@@ -259,7 +274,7 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Get time until next token becomes available (in milliseconds)
-   * 
+   *
    * @param {number} tokensRequired - Number of tokens needed (default: 1)
    * @returns {Promise<number>} Milliseconds until tokens available
    */
@@ -267,11 +282,11 @@ class RedisTokenBucket extends EventEmitter {
     try {
       const result = await this._executeScript(0); // Don't consume
       const currentTokens = result[1];
-      
+
       if (currentTokens >= tokensRequired) {
         return 0;
       }
-      
+
       const tokensNeeded = tokensRequired - currentTokens;
       return Math.ceil((tokensNeeded / this.refillRate) * 1000);
     } catch (error) {
@@ -282,15 +297,15 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Reset the bucket to full capacity or a specified token count
-   * 
+   *
    * @param {number} [tokens] - Optional: number of tokens to reset to (defaults to capacity)
    * @returns {Promise<Object>} Result with old and new token counts
    * @throws {Error} If tokens exceeds capacity or is negative
-   * 
+   *
    * @example
    * // Reset to full capacity
    * await limiter.reset();
-   * 
+   *
    * // Reset to specific value
    * await limiter.reset(50);
    */
@@ -299,7 +314,7 @@ class RedisTokenBucket extends EventEmitter {
       // Get old state first
       const oldState = await this.getState();
       const oldTokens = oldState.availableTokens;
-      
+
       // Determine target token count
       let targetTokens;
       if (tokens === undefined) {
@@ -317,15 +332,11 @@ class RedisTokenBucket extends EventEmitter {
         }
         targetTokens = tokens;
       }
-      
+
       // Set tokens in Redis
-      await this.redis.hmset(
-        this.key,
-        'tokens', targetTokens,
-        'lastRefill', Date.now()
-      );
+      await this.redis.hmset(this.key, 'tokens', targetTokens, 'lastRefill', Date.now());
       await this.redis.expire(this.key, this.ttl);
-      
+
       return {
         oldTokens,
         newTokens: Math.floor(targetTokens),
@@ -340,15 +351,15 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Manually sets the token count
-   * 
+   *
    * @param {number} tokens - Number of tokens to set
    * @returns {Promise<Object>} Result with old and new token counts
    * @throws {Error} If tokens is invalid or exceeds capacity
-   * 
+   *
    * @example
    * // Set tokens to specific value
    * await limiter.setTokens(75);
-   * 
+   *
    * // Drain all tokens
    * await limiter.setTokens(0);
    */
@@ -364,19 +375,15 @@ class RedisTokenBucket extends EventEmitter {
       if (tokens > this.capacity) {
         throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
       }
-      
+
       // Get old state
       const oldState = await this.getState();
       const oldTokens = oldState.availableTokens;
-      
+
       // Set new tokens
-      await this.redis.hmset(
-        this.key,
-        'tokens', tokens,
-        'lastRefill', Date.now()
-      );
+      await this.redis.hmset(this.key, 'tokens', tokens, 'lastRefill', Date.now());
       await this.redis.expire(this.key, this.ttl);
-      
+
       return {
         oldTokens,
         newTokens: Math.floor(tokens),
@@ -391,14 +398,14 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Get current state of the bucket
-   * 
+   *
    * @param {boolean} [detailed=false] - Include detailed metrics and timing info
    * @returns {Promise<Object>} Current state
-   * 
+   *
    * @example
    * // Basic state
    * const state = await limiter.getState();
-   * 
+   *
    * // Detailed state
    * const detailed = await limiter.getState(true);
    */
@@ -407,7 +414,7 @@ class RedisTokenBucket extends EventEmitter {
       const result = await this._executeScript(0);
       const availableTokens = Math.floor(result[1]);
       const lastRefill = result[2];
-      
+
       const baseState = {
         capacity: this.capacity,
         availableTokens,
@@ -415,24 +422,25 @@ class RedisTokenBucket extends EventEmitter {
         refillRate: this.refillRate,
         key: this.key
       };
-      
+
       if (!detailed) {
         return baseState;
       }
-      
+
       // Calculate detailed metrics
       const utilizationPercent = ((this.capacity - availableTokens) / this.capacity) * 100;
       const tokensNeeded = 1;
-      const timeUntilNextToken = tokensNeeded > availableTokens
-        ? Math.ceil(((tokensNeeded - availableTokens) / this.refillRate) * 1000)
-        : 0;
+      const timeUntilNextToken =
+        tokensNeeded > availableTokens
+          ? Math.ceil(((tokensNeeded - availableTokens) / this.refillRate) * 1000)
+          : 0;
       const timeToFullMs = Math.ceil(((this.capacity - availableTokens) / this.refillRate) * 1000);
-      
+
       // Get block information
       const isBlocked = await this.isBlocked();
       const blockTimeRemaining = isBlocked ? await this.getBlockTimeRemaining() : 0;
       const blockUntil = isBlocked ? await this.redis.get(`${this.key}:block`) : null;
-      
+
       return {
         ...baseState,
         // Token metrics
@@ -440,17 +448,17 @@ class RedisTokenBucket extends EventEmitter {
         utilizationPercent,
         tokensFull: availableTokens === this.capacity,
         tokensEmpty: availableTokens < 1,
-        
+
         // Timing information
         lastRefillAt: new Date(lastRefill).toISOString(),
         nextRefillIn: timeUntilNextToken,
         timeToFullMs,
-        
+
         // Block information
         isBlocked,
         blockUntil: blockUntil ? parseInt(blockUntil) : null,
         blockTimeRemaining,
-        
+
         // Metadata
         timestamp: Date.now(),
         timestampISO: new Date().toISOString(),
@@ -471,7 +479,7 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Delete the bucket from Redis
-   * 
+   *
    * @returns {Promise<void>}
    */
   async delete() {
@@ -486,15 +494,15 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Applies a penalty by removing tokens from the bucket
    * Useful for punishing bad behavior (failed login attempts, invalid requests)
-   * 
+   *
    * @param {number} [points=1] - Number of tokens to remove as penalty
    * @returns {Promise<Object>} Result with remainingTokens and penaltyApplied
    * @throws {Error} If points is invalid
-   * 
+   *
    * @example
    * // Failed login attempt - remove 5 tokens
    * await limiter.penalty(5);
-   * 
+   *
    * // Multiple failed attempts can reduce tokens below zero
    * await limiter.penalty(10); // Now user must wait longer for tokens to refill
    */
@@ -573,9 +581,9 @@ class RedisTokenBucket extends EventEmitter {
         source: 'redis',
         timestamp: Date.now()
       };
-      
+
       this.emit('penalty', data);
-      
+
       return data;
     } catch (error) {
       console.error('Redis error in penalty:', error.message);
@@ -591,15 +599,15 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Applies a reward by adding tokens to the bucket
    * Useful for rewarding good behavior (successful captcha, verification)
-   * 
+   *
    * @param {number} [points=1] - Number of tokens to add as reward
    * @returns {Promise<Object>} Result with remainingTokens and rewardApplied
    * @throws {Error} If points is invalid
-   * 
+   *
    * @example
    * // User completed captcha successfully - reward 2 tokens
    * await limiter.reward(2);
-   * 
+   *
    * // Rewards respect capacity - cannot exceed max tokens
    * await limiter.reward(1000); // Only adds up to capacity
    */
@@ -681,9 +689,9 @@ class RedisTokenBucket extends EventEmitter {
         source: 'redis',
         timestamp: Date.now()
       };
-      
+
       this.emit('reward', data);
-      
+
       return data;
     } catch (error) {
       console.error('Redis error in reward:', error.message);
@@ -698,27 +706,21 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Execute Lua script for atomic operations
-   * 
+   *
    * @private
    * @param {number} tokensRequired - Number of tokens to consume
    * @returns {Promise<Array>} Script result [allowed, tokens, timeUntilNext]
    */
   async _executeScript(tokensRequired) {
     const now = Date.now();
-    const args = [
-      this.capacity,
-      this.refillRate,
-      tokensRequired,
-      now,
-      this.ttl
-    ];
+    const args = [this.capacity, this.refillRate, tokensRequired, now, this.ttl];
 
     // Check if redis client has eval method (ioredis style)
     if (typeof this.redis.eval === 'function') {
       // eslint-disable-next-line no-return-await
       return await this.redis.eval(this.luaScript, 1, this.key, ...args);
     }
-    
+
     // Check if redis client has sendCommand (node-redis v4+ style)
     if (typeof this.redis.sendCommand === 'function') {
       // eslint-disable-next-line no-return-await
@@ -742,7 +744,7 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Check Redis connection health
-   * 
+   *
    * @returns {Promise<boolean>} True if connected, false otherwise
    */
   async isHealthy() {
@@ -757,9 +759,9 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Check if insurance limiter is currently active
-   * 
+   *
    * @returns {boolean} True if using fallback limiter
-   * 
+   *
    * @example
    * if (limiter.isInsuranceActive()) {
    *   console.log('Redis is down, using fallback rate limits');
@@ -771,9 +773,9 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Get insurance limiter status and metrics
-   * 
+   *
    * @returns {Object} Insurance status information
-   * 
+   *
    * @example
    * const status = limiter.getInsuranceStatus();
    * console.log(`Fallback active: ${status.active}`);
@@ -804,14 +806,14 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Manually activate or deactivate insurance limiter
    * Useful for testing or manual failover
-   * 
+   *
    * @param {boolean} active - Whether to activate insurance
    * @returns {Object} Result with activation status
-   * 
+   *
    * @example
    * // Force fallback for testing
    * limiter.setInsuranceActive(true);
-   * 
+   *
    * // Return to normal operation
    * limiter.setInsuranceActive(false);
    */
@@ -839,17 +841,17 @@ class RedisTokenBucket extends EventEmitter {
   /**   * Blocks the bucket for a specified duration
    * During the block period, all requests will be rejected regardless of token availability
    * Uses Redis to store block state for distributed enforcement
-   * 
+   *
    * @param {number} durationMs - Duration to block in milliseconds
    * @returns {Promise<Object>} Result with blockUntil timestamp and duration
    * @throws {Error} If duration is invalid
-   * 
+   *
    * @example
    * // Block for 5 minutes after 3 failed login attempts
    * if (failedAttempts >= 3) {
    *   await limiter.block(5 * 60 * 1000);
    * }
-   * 
+   *
    * // Temporary IP ban for 1 hour
    * await limiter.block(60 * 60 * 1000);
    */
@@ -861,11 +863,11 @@ class RedisTokenBucket extends EventEmitter {
     try {
       const blockUntil = Date.now() + durationMs;
       const blockKey = `${this.key}:block`;
-      
+
       // Set block timestamp in Redis with TTL matching block duration
       const ttlSeconds = Math.ceil(durationMs / 1000);
       await this.redis.setex(blockKey, ttlSeconds, blockUntil.toString());
-      
+
       return {
         blocked: true,
         blockUntil,
@@ -880,9 +882,9 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Checks if the bucket is currently blocked
-   * 
+   *
    * @returns {Promise<boolean>} True if blocked, false otherwise
-   * 
+   *
    * @example
    * if (await limiter.isBlocked()) {
    *   const timeLeft = await limiter.getBlockTimeRemaining();
@@ -893,20 +895,20 @@ class RedisTokenBucket extends EventEmitter {
     try {
       const blockKey = `${this.key}:block`;
       const blockUntil = await this.redis.get(blockKey);
-      
+
       if (!blockUntil) {
         return false;
       }
-      
+
       const now = Date.now();
       const blockTime = parseInt(blockUntil, 10);
-      
+
       if (now >= blockTime) {
         // Block has expired, clean up
         await this.redis.del(blockKey);
         return false;
       }
-      
+
       return true;
     } catch (error) {
       console.error('Redis error in isBlocked:', error.message);
@@ -917,9 +919,9 @@ class RedisTokenBucket extends EventEmitter {
 
   /**
    * Gets the remaining block time in milliseconds
-   * 
+   *
    * @returns {Promise<number>} Milliseconds until unblock, or 0 if not blocked
-   * 
+   *
    * @example
    * const msRemaining = await limiter.getBlockTimeRemaining();
    * const secondsRemaining = Math.ceil(msRemaining / 1000);
@@ -929,20 +931,20 @@ class RedisTokenBucket extends EventEmitter {
     try {
       const blockKey = `${this.key}:block`;
       const blockUntil = await this.redis.get(blockKey);
-      
+
       if (!blockUntil) {
         return 0;
       }
-      
+
       const now = Date.now();
       const blockTime = parseInt(blockUntil, 10);
       const remaining = Math.max(0, blockTime - now);
-      
+
       if (remaining === 0) {
         // Block has expired, clean up
         await this.redis.del(blockKey);
       }
-      
+
       return remaining;
     } catch (error) {
       console.error('Redis error in getBlockTimeRemaining:', error.message);
@@ -953,9 +955,9 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Manually unblocks the bucket before the block duration expires
    * Useful for admin actions or when block should be lifted early
-   * 
+   *
    * @returns {Promise<Object>} Result indicating unblock status
-   * 
+   *
    * @example
    * // Admin manually unblocks a user
    * await limiter.unblock();
@@ -964,7 +966,7 @@ class RedisTokenBucket extends EventEmitter {
     try {
       const blockKey = `${this.key}:block`;
       const deleted = await this.redis.del(blockKey);
-      
+
       return {
         unblocked: true,
         wasBlocked: deleted > 0
@@ -978,9 +980,9 @@ class RedisTokenBucket extends EventEmitter {
   /**   * Exports the bucket configuration to JSON
    * Note: For Redis buckets, the actual state is stored in Redis.
    * This method exports the configuration needed to reconnect to the same bucket.
-   * 
+   *
    * @returns {Object} Serializable configuration object
-   * 
+   *
    * @example
    * const bucket = new RedisTokenBucket(redis, 'user:123', 100, 10);
    * const config = bucket.toJSON();
@@ -1007,12 +1009,12 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Creates a RedisTokenBucket instance from JSON configuration
    * Note: This restores the configuration, not the state. The actual state is in Redis.
-   * 
+   *
    * @param {Object} redis - Redis client instance
    * @param {Object} json - Serialized configuration from toJSON()
    * @returns {RedisTokenBucket} New instance connected to the same Redis bucket
    * @throws {Error} If json is invalid or missing required fields
-   * 
+   *
    * @example
    * const config = JSON.parse(fs.readFileSync('bucket-config.json'));
    * const redis = new Redis();
@@ -1031,7 +1033,7 @@ class RedisTokenBucket extends EventEmitter {
     // Check for required fields
     const requiredFields = ['key', 'capacity', 'refillRate'];
     const missingFields = requiredFields.filter(field => !(field in json));
-    
+
     if (missingFields.length > 0) {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
@@ -1055,9 +1057,9 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Exports current state from Redis to a portable format
    * Unlike toJSON(), this fetches the actual state from Redis
-   * 
+   *
    * @returns {Promise<Object>} Complete state including configuration and current tokens
-   * 
+   *
    * @example
    * const bucket = new RedisTokenBucket(redis, 'user:123', 100, 10);
    * const snapshot = await bucket.exportState();
@@ -1097,11 +1099,11 @@ class RedisTokenBucket extends EventEmitter {
   /**
    * Imports state into Redis from an exported snapshot
    * This can restore a bucket to a previous state
-   * 
+   *
    * @param {Object} snapshot - State exported from exportState()
    * @returns {Promise<void>}
    * @throws {Error} If snapshot is invalid
-   * 
+   *
    * @example
    * const snapshot = JSON.parse(fs.readFileSync('state.json'));
    * const redis = new Redis();
@@ -1118,7 +1120,7 @@ class RedisTokenBucket extends EventEmitter {
     // Check for required fields
     const requiredFields = ['capacity', 'tokens', 'refillRate', 'lastRefill'];
     const missingFields = requiredFields.filter(field => !(field in snapshot));
-    
+
     if (missingFields.length > 0) {
       throw new Error(`Missing required fields in snapshot: ${missingFields.join(', ')}`);
     }
@@ -1141,7 +1143,9 @@ class RedisTokenBucket extends EventEmitter {
     }
 
     if (snapshot.tokens > snapshot.capacity) {
-      throw new Error(`Invalid snapshot: tokens (${snapshot.tokens}) cannot exceed capacity (${snapshot.capacity})`);
+      throw new Error(
+        `Invalid snapshot: tokens (${snapshot.tokens}) cannot exceed capacity (${snapshot.capacity})`
+      );
     }
 
     try {
@@ -1153,12 +1157,12 @@ class RedisTokenBucket extends EventEmitter {
       const multi = this.redis.multi();
       multi.hset(this.key, 'tokens', snapshot.tokens.toString());
       multi.hset(this.key, 'lastRefill', snapshot.lastRefill.toString());
-      
+
       // Set TTL if configured
       if (this.ttl > 0) {
         multi.expire(this.key, this.ttl);
       }
-      
+
       await multi.exec();
     } catch (error) {
       console.error('Redis error in importState:', error.message);
