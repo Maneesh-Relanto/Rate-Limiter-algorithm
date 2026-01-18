@@ -328,13 +328,10 @@ describe('Main Index TypeScript Definitions', () => {
 
   describe('Type Compatibility', () => {
     it('should maintain type compatibility across exports', () => {
-      const limiter = new TokenBucket({
-        capacity: 100,
-        refillRate: 10
-      });
+      const limiter = new TokenBucket(100, 10);
       
-      const result: AllowRequestResult = limiter.allowRequest();
-      expect(result.allowed).toBeDefined();
+      const result: boolean = limiter.allowRequest();
+      expect(typeof result).toBe('boolean');
     });
 
     it('should work with middleware types', () => {
@@ -367,11 +364,9 @@ describe('Main Index TypeScript Definitions', () => {
     it('should organize exports by category', () => {
       // TokenBucket category
       expect(TokenBucket).toBeDefined();
-      expect(TokenBucketOptions).toBeDefined;
       
       // RedisTokenBucket category
       expect(RedisTokenBucket).toBeDefined();
-      expect(RedisTokenBucketOptions).toBeDefined;
       
       // Middleware category
       expect(tokenBucketMiddleware).toBeDefined();
@@ -394,10 +389,7 @@ describe('Main Index TypeScript Definitions', () => {
 
   describe('Integration Patterns', () => {
     it('should support creating limiter from package', () => {
-      const limiter = new TokenBucket({
-        capacity: 100,
-        refillRate: 10
-      });
+      const limiter = new TokenBucket(100, 10);
       
       expect(limiter).toBeInstanceOf(TokenBucket);
     });
@@ -436,23 +428,17 @@ describe('Main Index TypeScript Definitions', () => {
   describe('Documentation and JSDoc', () => {
     it('should have types for all documented features', () => {
       // Verify all major features have corresponding types
-      const limiter: TokenBucket = new TokenBucket({
-        capacity: 100,
-        refillRate: 10
-      });
+      const limiter: TokenBucket = new TokenBucket(100, 10);
       
-      const result: AllowRequestResult = limiter.allowRequest(1);
+      const result: boolean = limiter.allowRequest(1);
       const state: TokenBucketState = limiter.getState();
       
-      expect(result).toBeDefined();
+      expect(typeof result).toBe('boolean');
       expect(state).toBeDefined();
     });
 
     it('should support event-based patterns', () => {
-      const limiter = new TokenBucket({
-        capacity: 100,
-        refillRate: 10
-      });
+      const limiter = new TokenBucket(100, 10);
       
       limiter.on('allowed', (data: AllowedEventData) => {
         expect(data.tokens).toBeGreaterThanOrEqual(0);
@@ -469,10 +455,7 @@ describe('Main Index TypeScript Definitions', () => {
   describe('Package Version Compatibility', () => {
     it('should maintain backward compatibility', () => {
       // Basic usage should always work
-      const limiter = new TokenBucket({
-        capacity: 100,
-        refillRate: 10
-      });
+      const limiter = new TokenBucket(100, 10);
       
       expect(limiter.allowRequest).toBeDefined();
       expect(limiter.getState).toBeDefined();
