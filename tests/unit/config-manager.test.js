@@ -589,4 +589,797 @@ describe('ConfigManager', () => {
       expect(instance2.configPath).toBe('/path2/config.json');
     });
   });
+
+  describe('Validation Tests - Input Validation', () => {
+    beforeEach(() => {
+      configManager = new ConfigManager();
+    });
+
+    describe('Invalid Capacity Values', () => {
+      it('should handle zero capacity', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            zero: {
+              capacity: 0,
+              refillRate: 1,
+              description: 'Zero capacity'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('zero');
+        expect(config.capacity).toBe(0);
+      });
+
+      it('should handle negative capacity', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            negative: {
+              capacity: -10,
+              refillRate: 1,
+              description: 'Negative capacity'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('negative');
+        expect(config.capacity).toBe(-10);
+      });
+
+      it('should handle fractional capacity', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            fractional: {
+              capacity: 10.5,
+              refillRate: 1,
+              description: 'Fractional capacity'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('fractional');
+        expect(config.capacity).toBe(11); // Math.ceil(10.5)
+      });
+    });
+
+    describe('Invalid Refill Rate Values', () => {
+      it('should handle zero refill rate', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            zeroRefill: {
+              capacity: 100,
+              refillRate: 0,
+              description: 'Zero refill'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('zeroRefill');
+        expect(config.refillRate).toBe(0);
+      });
+
+      it('should handle negative refill rate', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            negativeRefill: {
+              capacity: 100,
+              refillRate: -5,
+              description: 'Negative refill'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('negativeRefill');
+        expect(config.refillRate).toBe(-5);
+      });
+
+      it('should handle extremely small refill rates', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            tinyRefill: {
+              capacity: 1,
+              refillRate: 0.000001,
+              description: 'Tiny refill'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('tinyRefill');
+        expect(config.refillRate).toBe(0.000001);
+      });
+    });
+
+    describe('Invalid Cost Values', () => {
+      it('should handle zero cost', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            zeroCost: {
+              capacity: 100,
+              refillRate: 10,
+              cost: 0,
+              description: 'Zero cost'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('zeroCost');
+        // cost || 1 means 0 becomes 1 (falsy)
+        expect(config.cost).toBe(1);
+      });
+
+      it('should handle negative cost', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            negativeCost: {
+              capacity: 100,
+              refillRate: 10,
+              cost: -5,
+              description: 'Negative cost'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('negativeCost');
+        expect(config.cost).toBe(-5);
+      });
+    });
+
+    describe('Missing Required Fields', () => {
+      it('should handle missing capacity', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            noCapacity: {
+              refillRate: 10,
+              description: 'Missing capacity'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('noCapacity');
+        // Math.ceil(undefined * 1) = NaN
+        expect(Number.isNaN(config.capacity)).toBe(true);
+      });
+
+      it('should handle missing refillRate', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            noRefill: {
+              capacity: 100,
+              description: 'Missing refill'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('noRefill');
+        // undefined * 1 = NaN
+        expect(Number.isNaN(config.refillRate)).toBe(true);
+      });
+
+      it('should handle missing description', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            noDescription: {
+              capacity: 100,
+              refillRate: 10
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('noDescription');
+        expect(config.description).toBeUndefined();
+      });
+    });
+
+    describe('Invalid Data Types', () => {
+      it('should handle string capacity', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            stringCap: {
+              capacity: '100',
+              refillRate: 10,
+              description: 'String capacity'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('stringCap');
+        // Math.ceil('100' * 1) coerces string to number
+        expect(config.capacity).toBe(100);
+      });
+
+      it('should handle boolean refillRate', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            boolRefill: {
+              capacity: 100,
+              refillRate: true,
+              description: 'Boolean refill'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('boolRefill');
+        // true * 1 = 1
+        expect(config.refillRate).toBe(1);
+      });
+
+      it('should handle null values', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            nullValues: {
+              capacity: null,
+              refillRate: null,
+              cost: null,
+              description: null
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('nullValues');
+        expect(config.capacity).toBe(0); // Math.ceil(null * 1) = 0
+        expect(config.refillRate).toBe(0); // null * 1 = 0
+        expect(config.cost).toBe(1); // null || 1 = 1
+      });
+    });
+
+    describe('listConfigurations() Edge Cases', () => {
+      it('should handle mixed object structures (non-config objects)', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            valid: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Valid config'
+            },
+            metadata: {
+              version: '1.0',
+              author: 'test'
+            },
+            nested: {
+              deep: {
+                config: {
+                  capacity: 50,
+                  refillRate: 5,
+                  description: 'Deep nested'
+                }
+              }
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const configs = configManager.listConfigurations();
+        const names = configs.map(c => c.name);
+        
+        expect(names).toContain('valid');
+        expect(names).toContain('nested.deep.config');
+        // metadata should not be listed as it lacks capacity
+        expect(names).not.toContain('metadata');
+      });
+
+      it('should handle empty rateLimits object', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {},
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const configs = configManager.listConfigurations();
+        expect(configs).toEqual([]);
+      });
+
+      it('should handle deeply nested configs with empty intermediate objects', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            level1: {
+              level2: {
+                level3: {
+                  level4: {
+                    deep: {
+                      capacity: 25,
+                      refillRate: 2.5,
+                      description: 'Very deep'
+                    }
+                  }
+                }
+              }
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const configs = configManager.listConfigurations();
+        const deepConfig = configs.find(c => c.name === 'level1.level2.level3.level4.deep');
+        
+        expect(deepConfig).toBeDefined();
+        expect(deepConfig.capacity).toBe(25);
+      });
+
+      it('should handle arrays in configuration (edge case)', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            withArray: {
+              capacity: 100,
+              refillRate: 10,
+              tags: ['api', 'public'],
+              description: 'Config with array'
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const configs = configManager.listConfigurations();
+        expect(configs.length).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('Validation Tests - Environment Variables', () => {
+    beforeEach(() => {
+      configManager = new ConfigManager();
+    });
+
+    describe('Invalid Environment Variable Values', () => {
+      it('should handle non-numeric capacity env var', () => {
+        process.env.BAD_LIMIT_CAPACITY = 'not-a-number';
+        process.env.BAD_LIMIT_REFILL = '10';
+
+        const config = configManager.getRateLimitFromEnv('BAD_LIMIT');
+        expect(Number.isNaN(config.capacity)).toBe(true);
+      });
+
+      it('should handle non-numeric refill env var', () => {
+        process.env.BAD_REFILL_CAPACITY = '100';
+        process.env.BAD_REFILL_REFILL = 'invalid';
+
+        const config = configManager.getRateLimitFromEnv('BAD_REFILL');
+        expect(Number.isNaN(config.refillRate)).toBe(true);
+      });
+
+      it('should handle empty string env vars', () => {
+        process.env.EMPTY_LIMIT_CAPACITY = '';
+        process.env.EMPTY_LIMIT_REFILL = '';
+
+        const config = configManager.getRateLimitFromEnv('EMPTY_LIMIT', 'default');
+        // Empty strings are falsy, should fallback
+        expect(config.capacity).toBe(100); // default
+      });
+
+      it('should handle whitespace-only env vars', () => {
+        process.env.SPACE_LIMIT_CAPACITY = '   ';
+        process.env.SPACE_LIMIT_REFILL = '  ';
+
+        const config = configManager.getRateLimitFromEnv('SPACE_LIMIT');
+        // Whitespace will be parsed as NaN by parseInt
+        expect(Number.isNaN(config.capacity)).toBe(true);
+      });
+
+      it('should handle Infinity values in env vars', () => {
+        process.env.INF_LIMIT_CAPACITY = 'Infinity';
+        process.env.INF_LIMIT_REFILL = 'Infinity';
+
+        const config = configManager.getRateLimitFromEnv('INF_LIMIT');
+        expect(config.capacity).toBe(NaN); // parseInt('Infinity') = NaN
+        expect(config.refillRate).toBe(Infinity); // parseFloat('Infinity') = Infinity
+      });
+
+      it('should handle negative values in env vars', () => {
+        process.env.NEG_LIMIT_CAPACITY = '-50';
+        process.env.NEG_LIMIT_REFILL = '-5.5';
+
+        const config = configManager.getRateLimitFromEnv('NEG_LIMIT');
+        expect(config.capacity).toBe(-50);
+        expect(config.refillRate).toBe(-5.5);
+      });
+
+      it('should handle hex values in env vars', () => {
+        process.env.HEX_LIMIT_CAPACITY = '0xFF'; // 255 in hex
+        process.env.HEX_LIMIT_REFILL = '10';
+
+        const config = configManager.getRateLimitFromEnv('HEX_LIMIT');
+        // parseInt('0xFF', 10) with base 10 = 0 (stops at 'x')
+        expect(config.capacity).toBe(0);
+      });
+    });
+
+    describe('Environment Variable Edge Cases', () => {
+      it('should handle partial env var set (only capacity)', () => {
+        process.env.PARTIAL_CAP_CAPACITY = '200';
+        delete process.env.PARTIAL_CAP_REFILL;
+
+        const config = configManager.getRateLimitFromEnv('PARTIAL_CAP', 'default');
+        // Should fallback because refill is missing
+        expect(config.capacity).toBe(100); // from default
+      });
+
+      it('should handle partial env var set (only refill)', () => {
+        delete process.env.PARTIAL_REF_CAPACITY;
+        process.env.PARTIAL_REF_REFILL = '20';
+
+        const config = configManager.getRateLimitFromEnv('PARTIAL_REF', 'default');
+        // Should fallback because capacity is missing
+        expect(config.refillRate).toBe(10); // from default
+      });
+
+      it('should handle cost-only env var', () => {
+        process.env.COST_ONLY_COST = '15';
+        delete process.env.COST_ONLY_CAPACITY;
+        delete process.env.COST_ONLY_REFILL;
+
+        const config = configManager.getRateLimitFromEnv('COST_ONLY', 'default');
+        // Should fallback because capacity and refill missing
+        expect(config.capacity).toBe(100);
+        expect(config.cost).toBe(1); // Cost from fallback, not env
+      });
+    });
+  });
+
+  describe('Validation Tests - Environment Multipliers', () => {
+    describe('Invalid Multiplier Values', () => {
+      it('should handle missing multiplier in environment config', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {
+            custom: {
+              description: 'No multiplier'
+            }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        configManager.setEnvironment('custom');
+        
+        const config = configManager.getRateLimit('test');
+        // envConfig.multiplier is undefined, undefined * 100 = NaN
+        expect(Number.isNaN(config.capacity)).toBe(true);
+      });
+
+      it('should handle zero multiplier', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {
+            zero: {
+              multiplier: 0
+            }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        configManager.setEnvironment('zero');
+        
+        const config = configManager.getRateLimit('test');
+        expect(config.capacity).toBe(0); // Math.ceil(100 * 0) = 0
+        expect(config.refillRate).toBe(0);
+      });
+
+      it('should handle negative multiplier', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {
+            negative: {
+              multiplier: -2
+            }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        configManager.setEnvironment('negative');
+        
+        const config = configManager.getRateLimit('test');
+        expect(config.capacity).toBe(-200); // Math.ceil(100 * -2)
+        expect(config.refillRate).toBe(-20);
+      });
+
+      it('should handle very large multiplier', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {
+            huge: {
+              multiplier: 1000
+            }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        configManager.setEnvironment('huge');
+        
+        const config = configManager.getRateLimit('test');
+        expect(config.capacity).toBe(100000); // 100 * 1000
+        expect(config.refillRate).toBe(10000);
+      });
+
+      it('should handle fractional multiplier', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {
+            fractional: {
+              multiplier: 0.333
+            }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        configManager.setEnvironment('fractional');
+        
+        const config = configManager.getRateLimit('test');
+        expect(config.capacity).toBe(34); // Math.ceil(100 * 0.333)
+        expect(config.refillRate).toBeCloseTo(3.33);
+      });
+    });
+
+    describe('Missing Environment Configuration', () => {
+      it('should handle missing environment section', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          }
+          // No environment section
+        }));
+
+        configManager = new ConfigManager();
+        // this.config.environment is undefined, accessing [this.environment] throws
+        expect(() => configManager.getRateLimit('test')).toThrow();
+      });
+
+      it('should handle empty environment object', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            test: {
+              capacity: 100,
+              refillRate: 10,
+              description: 'Test'
+            }
+          },
+          environment: {}
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('test');
+        expect(config.capacity).toBe(100);
+      });
+    });
+  });
+
+  describe('Validation Tests - Path Traversal', () => {
+    describe('Complex Path Scenarios', () => {
+      it('should handle empty string path', () => {
+        configManager = new ConfigManager();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        const config = configManager.getRateLimit('');
+        // Should fallback to default
+        expect(consoleWarnSpy).toHaveBeenCalled();
+        expect(config.capacity).toBe(100);
+        
+        consoleWarnSpy.mockRestore();
+      });
+
+      it('should handle path with trailing dot', () => {
+        configManager = new ConfigManager();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        const config = configManager.getRateLimit('api.free.');
+        // Empty part after dot should cause fallback
+        expect(consoleWarnSpy).toHaveBeenCalled();
+        
+        consoleWarnSpy.mockRestore();
+      });
+
+      it('should handle path with leading dot', () => {
+        configManager = new ConfigManager();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        const config = configManager.getRateLimit('.api.free');
+        // Empty part before dot should cause fallback
+        expect(consoleWarnSpy).toHaveBeenCalled();
+        
+        consoleWarnSpy.mockRestore();
+      });
+
+      it('should handle path with multiple consecutive dots', () => {
+        configManager = new ConfigManager();
+        const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
+        
+        const config = configManager.getRateLimit('api..free');
+        // Empty part between dots should cause fallback
+        expect(consoleWarnSpy).toHaveBeenCalled();
+        
+        consoleWarnSpy.mockRestore();
+      });
+
+      it('should handle very long nested path', () => {
+        fs.readFileSync.mockReturnValue(JSON.stringify({
+          rateLimits: {
+            a: {
+              b: {
+                c: {
+                  d: {
+                    e: {
+                      f: {
+                        g: {
+                          h: {
+                            capacity: 10,
+                            refillRate: 1,
+                            description: 'Very deep'
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          environment: {
+            production: { multiplier: 1.0 }
+          }
+        }));
+
+        configManager = new ConfigManager();
+        const config = configManager.getRateLimit('a.b.c.d.e.f.g.h');
+        expect(config.capacity).toBe(10);
+      });
+    });
+  });
+
+  describe('Validation Tests - Concurrent Access', () => {
+    it('should handle multiple simultaneous getRateLimit calls', () => {
+      configManager = new ConfigManager();
+      
+      const results = Promise.all([
+        Promise.resolve(configManager.getRateLimit('default')),
+        Promise.resolve(configManager.getRateLimit('api.free')),
+        Promise.resolve(configManager.getRateLimit('api.pro')),
+        Promise.resolve(configManager.getRateLimit('authentication.login'))
+      ]);
+      
+      return results.then(configs => {
+        expect(configs).toHaveLength(4);
+        expect(configs[0].capacity).toBe(100);
+        expect(configs[1].capacity).toBe(100);
+        expect(configs[2].capacity).toBe(1000);
+        expect(configs[3].capacity).toBe(5);
+      });
+    });
+
+    it('should handle environment changes during concurrent calls', () => {
+      configManager = new ConfigManager();
+      
+      const config1 = configManager.getRateLimit('api.free');
+      configManager.setEnvironment('development');
+      const config2 = configManager.getRateLimit('api.free');
+      configManager.setEnvironment('production');
+      const config3 = configManager.getRateLimit('api.free');
+      
+      expect(config1.capacity).toBe(100); // test env (1.0)
+      expect(config2.capacity).toBe(200); // development (2.0)
+      expect(config3.capacity).toBe(100); // production (1.0)
+    });
+
+    it('should handle reload during access', () => {
+      configManager = new ConfigManager();
+      const config1 = configManager.getRateLimit('default');
+      
+      // Change mock to return different config
+      fs.readFileSync.mockReturnValue(JSON.stringify({
+        rateLimits: {
+          default: {
+            capacity: 500,
+            refillRate: 50,
+            description: 'Reloaded default'
+          }
+        },
+        environment: {
+          production: { multiplier: 1.0 }
+        }
+      }));
+      
+      configManager.reload();
+      const config2 = configManager.getRateLimit('default');
+      
+      expect(config1.capacity).toBe(100);
+      expect(config2.capacity).toBe(500);
+    });
+  });
 });
