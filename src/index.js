@@ -4,20 +4,26 @@
 const TokenBucket = require('./algorithms/javascript/token-bucket');
 const RedisTokenBucket = require('./algorithms/javascript/redis-token-bucket');
 
-// Express middleware
+// Express middleware - Token Bucket
 const {
   tokenBucketMiddleware,
-  redisTokenBucketMiddleware,
   setRequestCost,
-  perUserRateLimit,
-  perIpRateLimit,
-  globalRateLimit,
-  redisHealthCheck,
-  defaultMiddlewareOptions
+  perUserRateLimit: perUserRateLimitLocal,
+  perIpRateLimit: perIpRateLimitLocal,
+  globalRateLimit: globalRateLimitLocal
 } = require('./middleware/express/token-bucket-middleware');
 
+// Express middleware - Redis Token Bucket
+const {
+  redisTokenBucketMiddleware,
+  perUserRateLimit: perUserRateLimitRedis,
+  perIpRateLimit: perIpRateLimitRedis,
+  globalRateLimit: globalRateLimitRedis,
+  redisHealthCheck
+} = require('./middleware/express/redis-token-bucket-middleware');
+
 // Utilities
-const ConfigManager = require('./utils/config-manager');
+const { ConfigManager, getConfigManager } = require('./utils/config-manager');
 
 module.exports = {
   // Algorithms
@@ -28,13 +34,12 @@ module.exports = {
   tokenBucketMiddleware,
   redisTokenBucketMiddleware,
   setRequestCost,
-  perUserRateLimit,
-  perIpRateLimit,
-  globalRateLimit,
+  perUserRateLimit: perUserRateLimitLocal,
+  perIpRateLimit: perIpRateLimitLocal,
+  globalRateLimit: globalRateLimitLocal,
   redisHealthCheck,
-  defaultMiddlewareOptions,
 
   // Utilities
   ConfigManager,
-  loadConfig: ConfigManager.loadConfig
+  getConfigManager
 };

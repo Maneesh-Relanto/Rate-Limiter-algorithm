@@ -51,9 +51,9 @@ import {
   
   // ConfigManager exports
   ConfigManager,
+  getConfigManager,
   RateLimitConfig,
-  EndpointConfig,
-  loadConfig
+  RateLimitConfigItem
 } from '../../src/index';
 
 describe('Main Index TypeScript Definitions', () => {
@@ -171,11 +171,13 @@ describe('Main Index TypeScript Definitions', () => {
     it('should export Redis event data types', () => {
       const redisEvent: RedisEventData = {
         key: 'test:limiter',
+        source: 'redis',
         timestamp: Date.now()
       };
       
       const allowed: RedisAllowedEventData = {
         key: 'test:limiter',
+        source: 'redis',
         tokens: 50,
         cost: 1,
         timestamp: Date.now()
@@ -183,6 +185,7 @@ describe('Main Index TypeScript Definitions', () => {
       
       const exceeded: RedisRateLimitExceededEventData = {
         key: 'test:limiter',
+        source: 'redis',
         retryAfter: 1000,
         reason: 'insufficient_tokens',
         timestamp: Date.now()
@@ -190,29 +193,36 @@ describe('Main Index TypeScript Definitions', () => {
       
       const penalty: RedisPenaltyEventData = {
         key: 'test:limiter',
+        source: 'redis',
         penaltyApplied: 10,
         remainingTokens: 40,
+        beforePenalty: 50,
         timestamp: Date.now()
       };
       
       const reward: RedisRewardEventData = {
         key: 'test:limiter',
+        source: 'redis',
         rewardApplied: 20,
+        cappedAtCapacity: false,
         timestamp: Date.now()
       };
       
       const error: RedisErrorEventData = {
         operation: 'allowRequest',
-        error: new Error('Connection failed'),
+        error: 'Connection failed',
+        key: 'test:limiter',
         timestamp: Date.now()
       };
       
       const insuranceActivated: InsuranceActivatedEventData = {
         reason: 'Redis connection failed',
+        failureCount: 3,
         timestamp: Date.now()
       };
       
       const insuranceDeactivated: InsuranceDeactivatedEventData = {
+        reason: 'Redis reconnected',
         timestamp: Date.now()
       };
       
@@ -276,11 +286,6 @@ describe('Main Index TypeScript Definitions', () => {
       type Req = RateLimitRequest;
       expect(true).toBe(true); // Type check passes
     });
-
-    it('should export defaultMiddlewareOptions', () => {
-      expect(defaultMiddlewareOptions).toBeDefined();
-      expect(typeof defaultMiddlewareOptions).toBe('object');
-    });
   });
 
   describe('ConfigManager Exports', () => {
@@ -291,24 +296,29 @@ describe('Main Index TypeScript Definitions', () => {
 
     it('should export RateLimitConfig type', () => {
       const config: RateLimitConfig = {
-        endpoints: []
+        rateLimits: {
+          default: { capacity: 100, refillRate: 10 }
+        },
+        environment: {
+          production: { multiplier: 1 }
+        }
       };
-      expect(config.endpoints).toBeDefined();
+      expect(config.rateLimits).toBeDefined();
     });
 
-    it('should export EndpointConfig type', () => {
-      const endpoint: EndpointConfig = {
-        path: '/test',
+    it('should export RateLimitConfigItem type', () => {
+      const item: RateLimitConfigItem = {
         capacity: 100,
         refillRate: 10,
-        refillInterval: 1000
+        cost: 1,
+        description: 'Test config'
       };
-      expect(endpoint.path).toBe('/test');
+      expect(item.capacity).toBe(100);
     });
 
-    it('should export loadConfig function', () => {
-      expect(loadConfig).toBeDefined();
-      expect(typeof loadConfig).toBe('function');
+    it('should export getConfigManager function', () => {
+      expect(getConfigManager).toBeDefined();
+      expect(typeof getConfigManager).toBe('function');
     });
   });
 
@@ -346,17 +356,19 @@ describe('Main Index TypeScript Definitions', () => {
 
     it('should work with config types', () => {
       const config: RateLimitConfig = {
-        endpoints: [
-          {
-            path: '/test',
+        rateLimits: {
+          default: {
             capacity: 100,
             refillRate: 10,
-            refillInterval: 1000
+            description: 'Test config'
           }
-        ]
+        },
+        environment: {
+          production: { multiplier: 1 }
+        }
       };
       
-      expect(config.endpoints).toHaveLength(1);
+      expect(config.rateLimits.default.capacity).toBe(100);
     });
   });
 
@@ -374,7 +386,7 @@ describe('Main Index TypeScript Definitions', () => {
       
       // Utility category
       expect(ConfigManager).toBeDefined();
-      expect(loadConfig).toBeDefined();
+      expect(getConfigManager).toBeDefined();
     });
 
     it('should provide comprehensive type coverage', () => {
@@ -416,12 +428,11 @@ describe('Main Index TypeScript Definitions', () => {
     });
 
     it('should support config loading patterns', () => {
-      const config: RateLimitConfig = {
-        endpoints: []
-      };
+      const manager = new ConfigManager();
+      const config = manager.getRateLimit('default');
       
-      ConfigManager.validateConfig(config);
-      expect(true).toBe(true);
+      expect(config).toHaveProperty('capacity');
+      expect(config).toHaveProperty('refillRate');
     });
   });
 

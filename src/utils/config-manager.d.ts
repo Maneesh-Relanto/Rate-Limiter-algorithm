@@ -1,73 +1,125 @@
 /// <reference types="node" />
 
 /**
- * Rate limit configuration for an endpoint
+ * Rate limit configuration for a specific tier/endpoint
  */
-export interface EndpointConfig {
-  /** Endpoint path or pattern */
-  path: string;
+export interface RateLimitConfigItem {
   /** Maximum number of tokens */
   capacity: number;
-  /** Tokens added per interval */
+  /** Tokens added per second */
   refillRate: number;
-  /** Refill interval in milliseconds */
-  refillInterval: number;
+  /** Cost per request (default: 1) */
+  cost?: number;
   /** Optional description */
   description?: string;
 }
 
 /**
- * Complete rate limiting configuration
+ * Environment-specific multipliers
+ */
+export interface EnvironmentConfig {
+  /** Rate limit multiplier for this environment */
+  multiplier: number;
+}
+
+/**
+ * Complete rate limiting configuration structure
  */
 export interface RateLimitConfig {
-  /** List of endpoint configurations */
-  endpoints: EndpointConfig[];
-  /** Default configuration for unlisted endpoints */
-  default?: {
-    capacity: number;
-    refillRate: number;
-    refillInterval: number;
+  /** Nested rate limit configurations */
+  rateLimits: {
+    [key: string]: RateLimitConfigItem | { [key: string]: RateLimitConfigItem };
+  };
+  /** Environment-specific settings */
+  environment: {
+    development?: EnvironmentConfig;
+    staging?: EnvironmentConfig;
+    production?: EnvironmentConfig;
+    [key: string]: EnvironmentConfig | undefined;
   };
 }
 
 /**
- * Configuration manager for loading and validating rate limit configs
- * 
- * @example
- * ```typescript
- * import { ConfigManager } from '@rate-limiter/core';
- * 
- * const config = ConfigManager.loadConfig('./config/rate-limits.json');
- * const endpointConfig = config.getConfigForPath('/api/users');
- * ```
+ * Options for ConfigManager constructor
  */
-export class ConfigManager {
-  /**
-   * Load configuration from a JSON file
-   * @param filePath - Path to configuration file
-   * @returns Parsed and validated configuration
-   */
-  static loadConfig(filePath: string): RateLimitConfig;
-
-  /**
-   * Get configuration for a specific path
-   * @param config - Complete configuration
-   * @param path - Request path
-   * @returns Matching endpoint configuration or default
-   */
-  static getConfigForPath(config: RateLimitConfig, path: string): EndpointConfig | null;
-
-  /**
-   * Validate configuration format
-   * @param config - Configuration to validate
-   * @throws Error if configuration is invalid
-   */
-  static validateConfig(config: RateLimitConfig): void;
+export interface ConfigManagerOptions {
+  /** Path to configuration file */
+  configPath?: string;
 }
 
 /**
- * Load configuration from file
- * @param filePath - Path to configuration file
- * @returns Parsed configuration
+ * Configuration manager for loading and managing rate limit configs
+ * 
+ * @example
+ * ```typescript
+ * import { ConfigManager, getConfigManager } from '@rate-limiter/core';
+ * 
+ * const manager = new ConfigManager('./config/rate-limits.json');
+ * const config = manager.getRateLimit('api.free');
+ * ```
  */
-export function loadConfig(filePath: string): RateLimitConfig;
+export class ConfigManager {
+  /** Path to configuration file */
+  configPath: string;
+  /** Loaded configuration */
+  config: RateLimitConfig;
+  /** Current environment */
+  environment: string;
+
+  /**
+   * Create a new ConfigManager instance
+   * @param configPath - Optional path to configuration file
+   */
+  constructor(configPath?: string);
+
+  /**
+   * Get rate limit configuration by name/path
+   * @param name - Configuration name (e.g., 'api.free', 'authentication.login')
+   * @returns Rate limit configuration
+   */
+  getRateLimit(name: string): RateLimitConfigItem;
+
+  /**
+   * Get rate limit from environment variable
+   * @param envVar - Environment variable prefix
+   * @param fallbackConfig - Fallback config name if env var not set
+   * @returns Rate limit configuration
+   */
+  getRateLimitFromEnv(envVar: string, fallbackConfig?: string): RateLimitConfigItem;
+
+  /**
+   * List all available configurations
+   * @returns List of configuration names and descriptions
+   */
+  listConfigurations(): Array<{
+    name: string;
+    capacity: number;
+    refillRate: number;
+    cost: number;
+    description?: string;
+  }>;
+
+  /**
+   * Set environment (for testing purposes)
+   * @param env - Environment name ('development', 'staging', 'production')
+   */
+  setEnvironment(env: string): void;
+
+  /**
+   * Reload configuration from file
+   */
+  reload(): void;
+
+  /**
+   * Get raw configuration object
+   * @returns Full configuration
+   */
+  getRawConfig(): RateLimitConfig;
+}
+
+/**
+ * Get or create ConfigManager singleton instance
+ * @param configPath - Optional custom config path
+ * @returns ConfigManager instance
+ */
+export function getConfigManager(configPath?: string): ConfigManager;

@@ -37,6 +37,8 @@ export interface RedisTokenBucketOptions extends TokenBucketOptions {
  * Event data for Redis-specific events
  */
 export interface RedisEventData {
+  /** Redis key used */
+  key: string;
   /** Source of the event ('redis' or 'insurance') */
   source: 'redis' | 'insurance';
   /** Timestamp of the event */

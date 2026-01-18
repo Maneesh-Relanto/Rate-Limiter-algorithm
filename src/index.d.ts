@@ -58,9 +58,10 @@ export type {
 } from './middleware/express/token-bucket-middleware';
 
 // Re-export utilities
-export { ConfigManager } from './utils/config-manager';
-export type { RateLimitConfig, ConfigManagerOptions, EndpointConfig } from './utils/config-manager';
-
-// Additional exports
-import { ConfigManager } from './utils/config-manager';
-export const loadConfig: typeof ConfigManager.loadConfig;
+export { ConfigManager, getConfigManager } from './utils/config-manager';
+export type { 
+  RateLimitConfig, 
+  RateLimitConfigItem,
+  EnvironmentConfig,
+  ConfigManagerOptions 
+} from './utils/config-manager';
