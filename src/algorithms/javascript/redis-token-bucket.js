@@ -157,18 +157,57 @@ class RedisTokenBucket {
   }
 
   /**
-   * Reset the bucket to full capacity
+   * Reset the bucket to full capacity or a specified token count
    * 
-   * @returns {Promise<void>}
+   * @param {number} [tokens] - Optional: number of tokens to reset to (defaults to capacity)
+   * @returns {Promise<Object>} Result with old and new token counts
+   * @throws {Error} If tokens exceeds capacity or is negative
+   * 
+   * @example
+   * // Reset to full capacity
+   * await limiter.reset();
+   * 
+   * // Reset to specific value
+   * await limiter.reset(50);
    */
-  async reset() {
+  async reset(tokens) {
     try {
+      // Get old state first
+      const oldState = await this.getState();
+      const oldTokens = oldState.availableTokens;
+      
+      // Determine target token count
+      let targetTokens;
+      if (tokens === undefined) {
+        targetTokens = this.capacity;
+      } else {
+        // Validate custom token value
+        if (!Number.isFinite(tokens)) {
+          throw new Error('Tokens must be a finite number');
+        }
+        if (tokens < 0) {
+          throw new Error('Tokens cannot be negative');
+        }
+        if (tokens > this.capacity) {
+          throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
+        }
+        targetTokens = tokens;
+      }
+      
+      // Set tokens in Redis
       await this.redis.hmset(
         this.key,
-        'tokens', this.capacity,
+        'tokens', targetTokens,
         'lastRefill', Date.now()
       );
       await this.redis.expire(this.key, this.ttl);
+      
+      return {
+        oldTokens,
+        newTokens: Math.floor(targetTokens),
+        capacity: this.capacity,
+        reset: true
+      };
     } catch (error) {
       console.error('Redis error in reset:', error.message);
       throw error;
@@ -176,19 +215,122 @@ class RedisTokenBucket {
   }
 
   /**
+   * Manually sets the token count
+   * 
+   * @param {number} tokens - Number of tokens to set
+   * @returns {Promise<Object>} Result with old and new token counts
+   * @throws {Error} If tokens is invalid or exceeds capacity
+   * 
+   * @example
+   * // Set tokens to specific value
+   * await limiter.setTokens(75);
+   * 
+   * // Drain all tokens
+   * await limiter.setTokens(0);
+   */
+  async setTokens(tokens) {
+    try {
+      // Validate
+      if (!Number.isFinite(tokens)) {
+        throw new Error('Tokens must be a finite number');
+      }
+      if (tokens < 0) {
+        throw new Error('Tokens cannot be negative');
+      }
+      if (tokens > this.capacity) {
+        throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
+      }
+      
+      // Get old state
+      const oldState = await this.getState();
+      const oldTokens = oldState.availableTokens;
+      
+      // Set new tokens
+      await this.redis.hmset(
+        this.key,
+        'tokens', tokens,
+        'lastRefill', Date.now()
+      );
+      await this.redis.expire(this.key, this.ttl);
+      
+      return {
+        oldTokens,
+        newTokens: Math.floor(tokens),
+        capacity: this.capacity,
+        changed: oldTokens !== Math.floor(tokens)
+      };
+    } catch (error) {
+      console.error('Redis error in setTokens:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Get current state of the bucket
    * 
+   * @param {boolean} [detailed=false] - Include detailed metrics and timing info
    * @returns {Promise<Object>} Current state
+   * 
+   * @example
+   * // Basic state
+   * const state = await limiter.getState();
+   * 
+   * // Detailed state
+   * const detailed = await limiter.getState(true);
    */
-  async getState() {
+  async getState(detailed = false) {
     try {
       const result = await this._executeScript(0);
-      return {
+      const availableTokens = Math.floor(result[1]);
+      const lastRefill = result[2];
+      
+      const baseState = {
         capacity: this.capacity,
-        availableTokens: Math.floor(result[1]),
-        lastRefill: result[2],
+        availableTokens,
+        lastRefill,
         refillRate: this.refillRate,
         key: this.key
+      };
+      
+      if (!detailed) {
+        return baseState;
+      }
+      
+      // Calculate detailed metrics
+      const utilizationPercent = ((this.capacity - availableTokens) / this.capacity) * 100;
+      const tokensNeeded = 1;
+      const timeUntilNextToken = tokensNeeded > availableTokens
+        ? Math.ceil(((tokensNeeded - availableTokens) / this.refillRate) * 1000)
+        : 0;
+      const timeToFullMs = Math.ceil(((this.capacity - availableTokens) / this.refillRate) * 1000);
+      
+      // Get block information
+      const isBlocked = await this.isBlocked();
+      const blockTimeRemaining = isBlocked ? await this.getBlockTimeRemaining() : 0;
+      const blockUntil = isBlocked ? await this.redis.get(`${this.key}:block`) : null;
+      
+      return {
+        ...baseState,
+        // Token metrics
+        tokensUsed: this.capacity - availableTokens,
+        utilizationPercent,
+        tokensFull: availableTokens === this.capacity,
+        tokensEmpty: availableTokens < 1,
+        
+        // Timing information
+        lastRefillAt: new Date(lastRefill).toISOString(),
+        nextRefillIn: timeUntilNextToken,
+        timeToFullMs,
+        
+        // Block information
+        isBlocked,
+        blockUntil: blockUntil ? parseInt(blockUntil) : null,
+        blockTimeRemaining,
+        
+        // Metadata
+        timestamp: Date.now(),
+        timestampISO: new Date().toISOString(),
+        distributed: true
       };
     } catch (error) {
       console.error('Redis error in getState:', error.message);

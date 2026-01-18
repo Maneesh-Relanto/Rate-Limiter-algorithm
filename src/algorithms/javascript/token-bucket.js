@@ -172,11 +172,92 @@ class TokenBucket {
   }
 
   /**
-   * Resets the bucket to full capacity
+   * Resets the bucket to full capacity or a specified token count
+   * 
+   * @param {number} [tokens] - Optional: number of tokens to reset to (defaults to capacity)
+   * @returns {Object} Result with old and new token counts
+   * @throws {Error} If tokens exceeds capacity or is negative
+   * 
+   * @example
+   * // Reset to full capacity
+   * limiter.reset();
+   * 
+   * // Reset to specific value
+   * limiter.reset(50); // Set to 50 tokens
+   * 
+   * // Admin grants bonus tokens after issue
+   * limiter.reset(limiter.capacity);
    */
-  reset() {
-    this.tokens = this.capacity;
+  reset(tokens) {
+    const oldTokens = Math.floor(this.tokens);
+    
+    if (tokens === undefined) {
+      // Default: reset to full capacity
+      this.tokens = this.capacity;
+    } else {
+      // Validate custom token value
+      if (!Number.isFinite(tokens)) {
+        throw new Error('Tokens must be a finite number');
+      }
+      if (tokens < 0) {
+        throw new Error('Tokens cannot be negative');
+      }
+      if (tokens > this.capacity) {
+        throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
+      }
+      
+      this.tokens = tokens;
+    }
+    
     this.lastRefill = Date.now();
+    
+    return {
+      oldTokens,
+      newTokens: Math.floor(this.tokens),
+      capacity: this.capacity,
+      reset: true
+    };
+  }
+
+  /**
+   * Manually sets the token count
+   * Useful for admin operations or synchronizing state
+   * 
+   * @param {number} tokens - Number of tokens to set
+   * @returns {Object} Result with old and new token counts
+   * @throws {Error} If tokens is invalid or exceeds capacity
+   * 
+   * @example
+   * // Set tokens to specific value
+   * limiter.setTokens(75);
+   * 
+   * // Drain all tokens (emergency rate limit)
+   * limiter.setTokens(0);
+   * 
+   * // Admin restores tokens after false positive
+   * limiter.setTokens(limiter.capacity);
+   */
+  setTokens(tokens) {
+    if (!Number.isFinite(tokens)) {
+      throw new Error('Tokens must be a finite number');
+    }
+    if (tokens < 0) {
+      throw new Error('Tokens cannot be negative');
+    }
+    if (tokens > this.capacity) {
+      throw new Error(`Tokens (${tokens}) cannot exceed capacity (${this.capacity})`);
+    }
+    
+    const oldTokens = Math.floor(this.tokens);
+    this.tokens = tokens;
+    this.lastRefill = Date.now();
+    
+    return {
+      oldTokens,
+      newTokens: Math.floor(this.tokens),
+      capacity: this.capacity,
+      changed: oldTokens !== Math.floor(tokens)
+    };
   }
 
   /**
@@ -279,15 +360,59 @@ class TokenBucket {
   /**
    * Gets the current state of the rate limiter
    * 
+   * @param {boolean} [detailed=false] - Include detailed metrics and timing info
    * @returns {Object} Current state including capacity, tokens, and rate
+   * 
+   * @example
+   * // Basic state
+   * const state = limiter.getState();
+   * console.log(state.availableTokens); // Current tokens
+   * 
+   * // Detailed state with timing and block info
+   * const detailed = limiter.getState(true);
+   * console.log(detailed.isBlocked, detailed.nextRefillIn);
    */
-  getState() {
+  getState(detailed = false) {
     this._refill();
-    return {
+    
+    const baseState = {
       capacity: this.capacity,
       availableTokens: Math.floor(this.tokens),
       refillRate: this.refillRate,
       utilizationPercent: ((this.capacity - this.tokens) / this.capacity) * 100
+    };
+    
+    if (!detailed) {
+      return baseState;
+    }
+    
+    // Calculate time until next token
+    const tokensNeeded = 1;
+    const timeUntilNextToken = tokensNeeded > this.tokens 
+      ? Math.ceil(((tokensNeeded - this.tokens) / this.refillRate) * 1000)
+      : 0;
+    
+    return {
+      ...baseState,
+      // Token metrics
+      tokensUsed: this.capacity - Math.floor(this.tokens),
+      tokensFull: Math.floor(this.tokens) === this.capacity,
+      tokensEmpty: this.tokens < 1,
+      
+      // Timing information
+      lastRefill: this.lastRefill,
+      lastRefillAt: new Date(this.lastRefill).toISOString(),
+      nextRefillIn: timeUntilNextToken,
+      timeToFullMs: Math.ceil(((this.capacity - this.tokens) / this.refillRate) * 1000),
+      
+      // Block information
+      isBlocked: this.isBlocked(),
+      blockUntil: this.blockUntil,
+      blockTimeRemaining: this.getBlockTimeRemaining(),
+      
+      // Metadata
+      timestamp: Date.now(),
+      timestampISO: new Date().toISOString()
     };
   }
 
