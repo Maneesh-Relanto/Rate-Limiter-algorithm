@@ -24,6 +24,7 @@ The Rate Limiter library is powerful but was limited to Node.js/JavaScript devel
 - **Health Checks** - Monitor server status and metrics
 - **Docker Support** - One-command deployment with health checks
 - **Production Ready** - Security headers, CORS, error handling, request logging
+- **🎨 Interactive Showcase** - [Live web demo](./examples/web-showcase/) with 8+ language examples
 
 ## 🚀 Quick Start
 
@@ -55,6 +56,29 @@ npm run dev
 ```
 
 The server will start on `http://localhost:8080` (configurable via `PORT` environment variable).
+
+## 🎨 Interactive Showcase
+
+**Try the live demo!** Open the [interactive web showcase](./examples/web-showcase/index.html) in your browser to:
+
+- ✅ Test all API endpoints with live buttons
+- ✅ View code examples in 8+ programming languages
+- ✅ Copy-paste ready integration code
+- ✅ See real-time API responses
+- ✅ Learn best practices for each language
+
+Languages included: JavaScript, Python, cURL, Java, Go, PHP, Ruby, C#
+
+**Quick start:**
+```bash
+# Start the API server (in api-server directory)
+node server.js
+
+# Open showcase in browser
+open examples/web-showcase/index.html
+```
+
+[📖 Full showcase documentation](./examples/web-showcase/README.md)
 
 ## 📖 API Reference
 
@@ -783,6 +807,7 @@ This project is licensed under the MIT License - see the [LICENSE](../LICENSE) f
 - [x] Comprehensive test suite
 - [x] Python client example
 - [x] Java client example
+- [x] Interactive web showcase with 8+ languages
 - [ ] Redis backend for distributed rate limiting
 - [ ] WebSocket support for real-time updates
 - [ ] Prometheus metrics export

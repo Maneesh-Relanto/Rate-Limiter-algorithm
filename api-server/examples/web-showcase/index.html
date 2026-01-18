@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiter REST API - Multi-Language Showcase</title>
+  <style>
+    :root {
+      --primary: #0066FF;
+      --primary-light: #E6F0FF;
+      --primary-dark: #0052CC;
+      --success: #00C853;
+      --success-light: #E8F5E9;
+      --error: #FF3D00;
+      --error-light: #FFEBE9;
+      --warning: #FF9100;
+      --warning-light: #FFF3E0;
+      --gray-50: #F8FAFB;
+      --gray-100: #F1F3F5;
+      --gray-200: #E9ECEF;
+      --gray-600: #6C757D;
+      --gray-700: #495057;
+      --gray-900: #212529;
+      --shadow: 0 4px 6px rgba(0,0,0,0.1);
+      --shadow-lg: 0 20px 25px rgba(0,0,0,0.15);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background-attachment: fixed;
+      color: var(--gray-900);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, var(--primary) 0%, #667eea 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--gray-600);
+      font-size: 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .api-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+    }
+
+    .api-status.online {
+      background: var(--success-light);
+      color: var(--success);
+      border: 2px solid var(--success);
+    }
+
+    .api-status.offline {
+      background: var(--error-light);
+      color: var(--error);
+      border: 2px solid var(--error);
+    }
+
+    .api-status .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .api-status.online .status-dot {
+      background: var(--success);
+    }
+
+    .api-status.offline .status-dot {
+      background: var(--error);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.1); }
+    }
+
+    .config-bar {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .config-item label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .config-item input {
+      padding: 0.75rem;
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .config-item input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--primary-light);
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .language-sidebar {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      height: fit-content;
+      position: sticky;
+      top: 2rem;
+    }
+
+    .language-sidebar h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--gray-900);
+    }
+
+    .language-btn {
+      width: 100%;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      background: var(--gray-50);
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .language-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary-dark);
+      transform: translateX(8px);
+    }
+
+    .language-btn.active {
+      background: linear-gradient(135deg, var(--primary) 0%, #667eea 100%);
+      border-color: var(--primary-dark);
+      color: white;
+      box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+    }
+
+    .language-icon {
+      font-size: 1.5rem;
+    }
+
+    .examples-panel {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .example-section {
+      display: none;
+    }
+
+    .example-section.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .example-section h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--gray-900);
+    }
+
+    .example-section p {
+      color: var(--gray-600);
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .test-card {
+      background: var(--gray-50);
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.3s;
+    }
+
+    .test-card:hover {
+      box-shadow: var(--shadow);
+      transform: translateY(-4px);
+      border-color: var(--primary);
+    }
+
+    .test-card h4 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .test-card p {
+      color: var(--gray-600);
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    .test-btn {
+      width: 100%;
+      padding: 0.875rem 1.5rem;
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: linear-gradient(135deg, var(--primary) 0%, #667eea 100%);
+    }
+
+    .test-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+    }
+
+    .test-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .code-block {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      overflow-x: auto;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      position: relative;
+    }
+
+    .code-block .copy-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background: var(--gray-700);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .code-block .copy-btn:hover {
+      background: var(--gray-600);
+    }
+
+    .response-section {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: var(--gray-50);
+      border-radius: 12px;
+      border: 2px solid var(--gray-200);
+    }
+
+    .response-section h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--gray-900);
+    }
+
+    .response-status {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+
+    .response-status.success {
+      background: var(--success-light);
+      color: var(--success);
+      border: 2px solid var(--success);
+    }
+
+    .response-status.error {
+      background: var(--error-light);
+      color: var(--error);
+      border: 2px solid var(--error);
+    }
+
+    .response-body {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 1rem;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .metrics-display {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .metric-card {
+      background: white;
+      border: 2px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+
+      .language-sidebar {
+        position: static;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.75rem;
+      }
+
+      .language-sidebar h3 {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .header h1 {
+        font-size: 1.75rem;
+      }
+
+      .test-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🚀 Rate Limiter REST API</h1>
+      <p class="subtitle">Universal Multi-Language Integration Showcase</p>
+      <div id="api-status" class="api-status offline">
+        <span class="status-dot"></span>
+        <span>Checking API...</span>
+      </div>
+    </div>
+
+    <!-- Configuration Bar -->
+    <div class="config-bar">
+      <div class="config-item">
+        <label>API Base URL</label>
+        <input type="text" id="apiUrl" value="http://localhost:8080" />
+      </div>
+      <div class="config-item">
+        <label>Limiter Key</label>
+        <input type="text" id="limiterKey" value="test-user" />
+      </div>
+      <div class="config-item">
+        <label>Capacity</label>
+        <input type="number" id="capacity" value="10" />
+      </div>
+      <div class="config-item">
+        <label>Refill Rate (per second)</label>
+        <input type="number" id="refillRate" value="2" />
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Language Sidebar -->
+      <div class="language-sidebar">
+        <h3>Select Language</h3>
+        <button class="language-btn active" data-lang="javascript">
+          <span class="language-icon">🟨</span>
+          <span>JavaScript</span>
+        </button>
+        <button class="language-btn" data-lang="python">
+          <span class="language-icon">🐍</span>
+          <span>Python</span>
+        </button>
+        <button class="language-btn" data-lang="curl">
+          <span class="language-icon">📡</span>
+          <span>cURL</span>
+        </button>
+        <button class="language-btn" data-lang="java">
+          <span class="language-icon">☕</span>
+          <span>Java</span>
+        </button>
+        <button class="language-btn" data-lang="go">
+          <span class="language-icon">🐹</span>
+          <span>Go</span>
+        </button>
+        <button class="language-btn" data-lang="php">
+          <span class="language-icon">🐘</span>
+          <span>PHP</span>
+        </button>
+        <button class="language-btn" data-lang="ruby">
+          <span class="language-icon">💎</span>
+          <span>Ruby</span>
+        </button>
+        <button class="language-btn" data-lang="csharp">
+          <span class="language-icon">#️⃣</span>
+          <span>C#</span>
+        </button>
+      </div>
+
+      <!-- Examples Panel -->
+      <div class="examples-panel">
+        <!-- JavaScript Section -->
+        <div id="javascript" class="example-section active">
+          <h2>JavaScript / Node.js Integration</h2>
+          <p>Native fetch API for seamless integration with any JavaScript application.</p>
+
+          <div class="test-grid">
+            <div class="test-card">
+              <h4>Check Rate Limit</h4>
+              <p>Verify if a request is allowed based on current token availability</p>
+              <button class="test-btn" onclick="testJavaScript('check')">Test Now</button>
+            </div>
+
+            <div class="test-card">
+              <h4>Apply Penalty</h4>
+              <p>Remove tokens as punishment for abusive behavior</p>
+              <button class="test-btn" onclick="testJavaScript('penalty')">Test Now</button>
+            </div>
+
+            <div class="test-card">
+              <h4>Apply Reward</h4>
+              <p>Add bonus tokens for good behavior</p>
+              <button class="test-btn" onclick="testJavaScript('reward')">Test Now</button>
+            </div>
+
+            <div class="test-card">
+              <h4>Block User</h4>
+              <p>Temporarily ban a key for 60 seconds</p>
+              <button class="test-btn" onclick="testJavaScript('block')">Test Now</button>
+            </div>
+
+            <div class="test-card">
+              <h4>Check Status</h4>
+              <p>Get current limiter state and token count</p>
+              <button class="test-btn" onclick="testJavaScript('status')">Test Now</button>
+            </div>
+
+            <div class="test-card">
+              <h4>Get Metrics</h4>
+              <p>View API server metrics and statistics</p>
+              <button class="test-btn" onclick="testJavaScript('metrics')">Test Now</button>
+            </div>
+          </div>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('js-code')">Copy</button>
+            <pre id="js-code">// JavaScript Example
+const apiUrl = 'http://localhost:8080';
+
+// Check rate limit
+async function checkRateLimit() {
+  const response = await fetch(`${apiUrl}/api/check`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      key: 'user-123',
+      capacity: 10,
+      refillRate: 2
+    })
+  });
+  const data = await response.json();
+  console.log(data);
+  // { allowed: true, tokens: 9, ... }
+}
+
+// Apply penalty
+async function applyPenalty() {
+  const response = await fetch(`${apiUrl}/api/penalty`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      key: 'user-123',
+      points: 5
+    })
+  });
+  const data = await response.json();
+  console.log(data);
+}</pre>
+          </div>
+
+          <div class="response-section">
+            <h4>Live Response</h4>
+            <div id="js-response" class="response-body">Click a test button to see results...</div>
+          </div>
+        </div>
+
+        <!-- Python Section -->
+        <div id="python" class="example-section">
+          <h2>Python Integration</h2>
+          <p>Use the requests library for easy integration with Python applications.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('python-code')">Copy</button>
+            <pre id="python-code">import requests
+import json
+
+# Configuration
+API_URL = 'http://localhost:8080'
+
+# Check rate limit
+def check_rate_limit(key, capacity=10, refill_rate=2):
+    response = requests.post(
+        f'{API_URL}/api/check',
+        json={
+            'key': key,
+            'capacity': capacity,
+            'refillRate': refill_rate
+        }
+    )
+    return response.json()
+
+# Apply penalty
+def apply_penalty(key, points=5):
+    response = requests.post(
+        f'{API_URL}/api/penalty',
+        json={'key': key, 'points': points}
+    )
+    return response.json()
+
+# Apply reward
+def apply_reward(key, points=3):
+    response = requests.post(
+        f'{API_URL}/api/reward',
+        json={'key': key, 'points': points}
+    )
+    return response.json()
+
+# Block user temporarily
+def block_user(key, duration=60):
+    response = requests.post(
+        f'{API_URL}/api/block',
+        json={'key': key, 'duration': duration}
+    )
+    return response.json()
+
+# Example usage
+if __name__ == '__main__':
+    result = check_rate_limit('user-123')
+    print(f"Allowed: {result['allowed']}")
+    print(f"Tokens: {result['tokens']}")
+    print(f"Capacity: {result['capacity']}")</pre>
+          </div>
+
+          <p style="margin-top: 2rem;"><strong>Installation:</strong></p>
+          <div class="code-block">
+            <pre>pip install requests</pre>
+          </div>
+        </div>
+
+        <!-- cURL Section -->
+        <div id="curl" class="example-section">
+          <h2>cURL Integration</h2>
+          <p>Simple command-line testing and integration with shell scripts.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('curl-code')">Copy</button>
+            <pre id="curl-code"># Check rate limit
+curl -X POST http://localhost:8080/api/check \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "user-123",
+    "capacity": 10,
+    "refillRate": 2
+  }'
+
+# Apply penalty (remove 5 tokens)
+curl -X POST http://localhost:8080/api/penalty \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "user-123",
+    "points": 5
+  }'
+
+# Apply reward (add 3 tokens)
+curl -X POST http://localhost:8080/api/reward \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "user-123",
+    "points": 3
+  }'
+
+# Block user for 60 seconds
+curl -X POST http://localhost:8080/api/block \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "user-123",
+    "duration": 60
+  }'
+
+# Check status
+curl -X GET http://localhost:8080/api/status/user-123
+
+# Get server metrics
+curl -X GET http://localhost:8080/api/metrics
+
+# Health check
+curl -X GET http://localhost:8080/api/health</pre>
+          </div>
+        </div>
+
+        <!-- Java Section -->
+        <div id="java" class="example-section">
+          <h2>Java Integration</h2>
+          <p>Use Java's HttpClient for enterprise-grade applications.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('java-code')">Copy</button>
+            <pre id="java-code">import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.URI;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+public class RateLimiterClient {
+    private static final String API_URL = "http://localhost:8080";
+    private static final HttpClient client = HttpClient.newHttpClient();
+    private static final Gson gson = new Gson();
+
+    // Check rate limit
+    public static JsonObject checkRateLimit(String key, int capacity, int refillRate) 
+        throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty("key", key);
+        body.addProperty("capacity", capacity);
+        body.addProperty("refillRate", refillRate);
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(API_URL + "/api/check"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
+            .build();
+
+        HttpResponse<String> response = client.send(request, 
+            HttpResponse.BodyHandlers.ofString());
+        return gson.fromJson(response.body(), JsonObject.class);
+    }
+
+    // Apply penalty
+    public static JsonObject applyPenalty(String key, int points) throws Exception {
+        JsonObject body = new JsonObject();
+        body.addProperty("key", key);
+        body.addProperty("points", points);
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(API_URL + "/api/penalty"))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
+            .build();
+
+        HttpResponse<String> response = client.send(request, 
+            HttpResponse.BodyHandlers.ofString());
+        return gson.fromJson(response.body(), JsonObject.class);
+    }
+
+    // Example usage
+    public static void main(String[] args) {
+        try {
+            JsonObject result = checkRateLimit("user-123", 10, 2);
+            System.out.println("Allowed: " + result.get("allowed").getAsBoolean());
+            System.out.println("Tokens: " + result.get("tokens").getAsInt());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}</pre>
+          </div>
+
+          <p style="margin-top: 2rem;"><strong>Maven Dependency:</strong></p>
+          <div class="code-block">
+            <pre>&lt;dependency&gt;
+    &lt;groupId&gt;com.google.code.gson&lt;/groupId&gt;
+    &lt;artifactId&gt;gson&lt;/artifactId&gt;
+    &lt;version&gt;2.10.1&lt;/version&gt;
+&lt;/dependency&gt;</pre>
+          </div>
+        </div>
+
+        <!-- Go Section -->
+        <div id="go" class="example-section">
+          <h2>Go Integration</h2>
+          <p>Use Go's standard library for high-performance applications.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('go-code')">Copy</button>
+            <pre id="go-code">package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+)
+
+const apiURL = "http://localhost:8080"
+
+type CheckRequest struct {
+    Key        string `json:"key"`
+    Capacity   int    `json:"capacity"`
+    RefillRate int    `json:"refillRate"`
+}
+
+type CheckResponse struct {
+    Allowed  bool   `json:"allowed"`
+    Tokens   int    `json:"tokens"`
+    Capacity int    `json:"capacity"`
+    Message  string `json:"message"`
+}
+
+// Check rate limit
+func checkRateLimit(key string, capacity, refillRate int) (*CheckResponse, error) {
+    reqBody := CheckRequest{
+        Key:        key,
+        Capacity:   capacity,
+        RefillRate: refillRate,
+    }
+
+    jsonData, err := json.Marshal(reqBody)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.Post(
+        fmt.Sprintf("%s/api/check", apiURL),
+        "application/json",
+        bytes.NewBuffer(jsonData),
+    )
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    body, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, err
+    }
+
+    var result CheckResponse
+    err = json.Unmarshal(body, &result)
+    if err != nil {
+        return nil, err
+    }
+
+    return &result, nil
+}
+
+// Apply penalty
+func applyPenalty(key string, points int) (map[string]interface{}, error) {
+    reqBody := map[string]interface{}{
+        "key":    key,
+        "points": points,
+    }
+
+    jsonData, _ := json.Marshal(reqBody)
+    resp, err := http.Post(
+        fmt.Sprintf("%s/api/penalty", apiURL),
+        "application/json",
+        bytes.NewBuffer(jsonData),
+    )
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+
+    var result map[string]interface{}
+    json.NewDecoder(resp.Body).Decode(&result)
+    return result, nil
+}
+
+func main() {
+    result, err := checkRateLimit("user-123", 10, 2)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+
+    fmt.Printf("Allowed: %v\n", result.Allowed)
+    fmt.Printf("Tokens: %d\n", result.Tokens)
+    fmt.Printf("Capacity: %d\n", result.Capacity)
+}</pre>
+          </div>
+        </div>
+
+        <!-- PHP Section -->
+        <div id="php" class="example-section">
+          <h2>PHP Integration</h2>
+          <p>Use cURL for integration with PHP web applications.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('php-code')">Copy</button>
+            <pre id="php-code">&lt;?php
+
+class RateLimiterClient {
+    private $apiUrl = 'http://localhost:8080';
+
+    // Check rate limit
+    public function checkRateLimit($key, $capacity = 10, $refillRate = 2) {
+        $data = [
+            'key' => $key,
+            'capacity' => $capacity,
+            'refillRate' => $refillRate
+        ];
+
+        return $this->post('/api/check', $data);
+    }
+
+    // Apply penalty
+    public function applyPenalty($key, $points = 5) {
+        $data = [
+            'key' => $key,
+            'points' => $points
+        ];
+
+        return $this->post('/api/penalty', $data);
+    }
+
+    // Apply reward
+    public function applyReward($key, $points = 3) {
+        $data = [
+            'key' => $key,
+            'points' => $points
+        ];
+
+        return $this->post('/api/reward', $data);
+    }
+
+    // Block user
+    public function blockUser($key, $duration = 60) {
+        $data = [
+            'key' => $key,
+            'duration' => $duration
+        ];
+
+        return $this->post('/api/block', $data);
+    }
+
+    // Get status
+    public function getStatus($key) {
+        return $this->get("/api/status/$key");
+    }
+
+    // POST request helper
+    private function post($endpoint, $data) {
+        $ch = curl_init($this->apiUrl . $endpoint);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json'
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'status' => $httpCode,
+            'data' => json_decode($response, true)
+        ];
+    }
+
+    // GET request helper
+    private function get($endpoint) {
+        $ch = curl_init($this->apiUrl . $endpoint);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'status' => $httpCode,
+            'data' => json_decode($response, true)
+        ];
+    }
+}
+
+// Example usage
+$client = new RateLimiterClient();
+
+$result = $client->checkRateLimit('user-123');
+echo "Allowed: " . ($result['data']['allowed'] ? 'true' : 'false') . "\n";
+echo "Tokens: " . $result['data']['tokens'] . "\n";
+
+?&gt;</pre>
+          </div>
+        </div>
+
+        <!-- Ruby Section -->
+        <div id="ruby" class="example-section">
+          <h2>Ruby Integration</h2>
+          <p>Use Ruby's net/http or httparty gem for integration.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('ruby-code')">Copy</button>
+            <pre id="ruby-code">require 'net/http'
+require 'json'
+require 'uri'
+
+class RateLimiterClient
+  API_URL = 'http://localhost:8080'
+
+  # Check rate limit
+  def self.check_rate_limit(key, capacity: 10, refill_rate: 2)
+    data = {
+      key: key,
+      capacity: capacity,
+      refillRate: refill_rate
+    }
+
+    post('/api/check', data)
+  end
+
+  # Apply penalty
+  def self.apply_penalty(key, points: 5)
+    data = { key: key, points: points }
+    post('/api/penalty', data)
+  end
+
+  # Apply reward
+  def self.apply_reward(key, points: 3)
+    data = { key: key, points: points }
+    post('/api/reward', data)
+  end
+
+  # Block user
+  def self.block_user(key, duration: 60)
+    data = { key: key, duration: duration }
+    post('/api/block', data)
+  end
+
+  # Get status
+  def self.get_status(key)
+    get("/api/status/#{key}")
+  end
+
+  private
+
+  # POST request helper
+  def self.post(endpoint, data)
+    uri = URI.parse("#{API_URL}#{endpoint}")
+    http = Net::HTTP.new(uri.host, uri.port)
+    
+    request = Net::HTTP::Post.new(uri.path)
+    request['Content-Type'] = 'application/json'
+    request.body = data.to_json
+
+    response = http.request(request)
+    JSON.parse(response.body)
+  end
+
+  # GET request helper
+  def self.get(endpoint)
+    uri = URI.parse("#{API_URL}#{endpoint}")
+    response = Net::HTTP.get_response(uri)
+    JSON.parse(response.body)
+  end
+end
+
+# Example usage
+result = RateLimiterClient.check_rate_limit('user-123')
+puts "Allowed: #{result['allowed']}"
+puts "Tokens: #{result['tokens']}"
+puts "Capacity: #{result['capacity']}"</pre>
+          </div>
+
+          <p style="margin-top: 2rem;"><strong>Or use HTTParty:</strong></p>
+          <div class="code-block">
+            <pre>gem install httparty
+
+require 'httparty'
+
+response = HTTParty.post('http://localhost:8080/api/check',
+  body: {
+    key: 'user-123',
+    capacity: 10,
+    refillRate: 2
+  }.to_json,
+  headers: { 'Content-Type' => 'application/json' }
+)
+
+puts response.parsed_response</pre>
+          </div>
+        </div>
+
+        <!-- C# Section -->
+        <div id="csharp" class="example-section">
+          <h2>C# Integration</h2>
+          <p>Use HttpClient for integration with .NET applications.</p>
+
+          <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('csharp-code')">Copy</button>
+            <pre id="csharp-code">using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class RateLimiterClient
+{
+    private static readonly HttpClient client = new HttpClient();
+    private const string ApiUrl = "http://localhost:8080";
+
+    // Check rate limit
+    public static async Task&lt;JsonDocument&gt; CheckRateLimitAsync(
+        string key, int capacity = 10, int refillRate = 2)
+    {
+        var data = new
+        {
+            key = key,
+            capacity = capacity,
+            refillRate = refillRate
+        };
+
+        var json = JsonSerializer.Serialize(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync($"{ApiUrl}/api/check", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        return JsonDocument.Parse(responseString);
+    }
+
+    // Apply penalty
+    public static async Task&lt;JsonDocument&gt; ApplyPenaltyAsync(string key, int points = 5)
+    {
+        var data = new { key = key, points = points };
+        var json = JsonSerializer.Serialize(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync($"{ApiUrl}/api/penalty", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        return JsonDocument.Parse(responseString);
+    }
+
+    // Apply reward
+    public static async Task&lt;JsonDocument&gt; ApplyRewardAsync(string key, int points = 3)
+    {
+        var data = new { key = key, points = points };
+        var json = JsonSerializer.Serialize(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync($"{ApiUrl}/api/reward", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        return JsonDocument.Parse(responseString);
+    }
+
+    // Block user
+    public static async Task&lt;JsonDocument&gt; BlockUserAsync(string key, int duration = 60)
+    {
+        var data = new { key = key, duration = duration };
+        var json = JsonSerializer.Serialize(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync($"{ApiUrl}/api/block", content);
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        return JsonDocument.Parse(responseString);
+    }
+
+    // Get status
+    public static async Task&lt;JsonDocument&gt; GetStatusAsync(string key)
+    {
+        var response = await client.GetAsync($"{ApiUrl}/api/status/{key}");
+        var responseString = await response.Content.ReadAsStringAsync();
+        
+        return JsonDocument.Parse(responseString);
+    }
+
+    // Example usage
+    public static async Task Main(string[] args)
+    {
+        try
+        {
+            var result = await CheckRateLimitAsync("user-123");
+            var root = result.RootElement;
+            
+            Console.WriteLine($"Allowed: {root.GetProperty("allowed").GetBoolean()}");
+            Console.WriteLine($"Tokens: {root.GetProperty("tokens").GetInt32()}");
+            Console.WriteLine($"Capacity: {root.GetProperty("capacity").GetInt32()}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Configuration
+    let apiUrl = 'http://localhost:8080';
+    let limiterKey = 'test-user';
+    let capacity = 10;
+    let refillRate = 2;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      checkApiHealth();
+      setupEventListeners();
+    });
+
+    // Setup event listeners
+    function setupEventListeners() {
+      // Config inputs
+      document.getElementById('apiUrl').addEventListener('change', (e) => {
+        apiUrl = e.target.value;
+        checkApiHealth();
+      });
+      document.getElementById('limiterKey').addEventListener('change', (e) => {
+        limiterKey = e.target.value;
+      });
+      document.getElementById('capacity').addEventListener('change', (e) => {
+        capacity = parseInt(e.target.value);
+      });
+      document.getElementById('refillRate').addEventListener('change', (e) => {
+        refillRate = parseInt(e.target.value);
+      });
+
+      // Language buttons
+      document.querySelectorAll('.language-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Remove active class from all buttons
+          document.querySelectorAll('.language-btn').forEach(b => b.classList.remove('active'));
+          // Add active class to clicked button
+          btn.classList.add('active');
+          
+          // Hide all sections
+          document.querySelectorAll('.example-section').forEach(s => s.classList.remove('active'));
+          // Show selected section
+          const lang = btn.dataset.lang;
+          document.getElementById(lang).classList.add('active');
+        });
+      });
+    }
+
+    // Check API health
+    async function checkApiHealth() {
+      const statusEl = document.getElementById('api-status');
+      
+      try {
+        const response = await fetch(`${apiUrl}/api/health`);
+        const data = await response.json();
+        
+        if (data.status === 'healthy') {
+          statusEl.className = 'api-status online';
+          statusEl.innerHTML = '<span class="status-dot"></span><span>API Online</span>';
+        } else {
+          throw new Error('API unhealthy');
+        }
+      } catch (error) {
+        statusEl.className = 'api-status offline';
+        statusEl.innerHTML = '<span class="status-dot"></span><span>API Offline - Start server first</span>';
+      }
+    }
+
+    // Test JavaScript functions
+    async function testJavaScript(action) {
+      const responseEl = document.getElementById('js-response');
+      responseEl.textContent = 'Loading...';
+
+      try {
+        let response, data;
+
+        switch (action) {
+          case 'check':
+            response = await fetch(`${apiUrl}/api/check`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: limiterKey, capacity, refillRate })
+            });
+            data = await response.json();
+            break;
+
+          case 'penalty':
+            response = await fetch(`${apiUrl}/api/penalty`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: limiterKey, points: 5 })
+            });
+            data = await response.json();
+            break;
+
+          case 'reward':
+            response = await fetch(`${apiUrl}/api/reward`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: limiterKey, points: 3 })
+            });
+            data = await response.json();
+            break;
+
+          case 'block':
+            response = await fetch(`${apiUrl}/api/block`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: limiterKey, duration: 60 })
+            });
+            data = await response.json();
+            break;
+
+          case 'status':
+            response = await fetch(`${apiUrl}/api/status/${limiterKey}`);
+            data = await response.json();
+            break;
+
+          case 'metrics':
+            response = await fetch(`${apiUrl}/api/metrics`);
+            data = await response.json();
+            break;
+        }
+
+        responseEl.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        responseEl.textContent = `Error: ${error.message}\n\nMake sure the API server is running:\ncd api-server\nnode server.js`;
+      }
+    }
+
+    // Copy code to clipboard
+    function copyCode(elementId) {
+      const code = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => {
+          btn.textContent = originalText;
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>
