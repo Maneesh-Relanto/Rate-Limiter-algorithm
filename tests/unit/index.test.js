@@ -66,16 +66,16 @@ describe('Package Exports - src/index.js', () => {
   });
 
   describe('Middleware Exports - Broken (Known Issues)', () => {
-    test('redisTokenBucketMiddleware is undefined (BUG)', () => {
-      // This is a BUG: index.js tries to destructure redisTokenBucketMiddleware from
-      // token-bucket-middleware.js, but it's actually in redis-token-bucket-middleware.js
-      expect(ratelimiter.redisTokenBucketMiddleware).toBeUndefined();
+    test('redisTokenBucketMiddleware is now FIXED and exported', () => {
+      // FIXED: index.js now correctly imports from redis-token-bucket-middleware.js
+      expect(ratelimiter.redisTokenBucketMiddleware).toBeDefined();
+      expect(typeof ratelimiter.redisTokenBucketMiddleware).toBe('function');
     });
 
-    test('redisHealthCheck is undefined (BUG)', () => {
-      // This is a BUG: index.js tries to destructure redisHealthCheck from
-      // token-bucket-middleware.js, but it's actually in redis-token-bucket-middleware.js
-      expect(ratelimiter.redisHealthCheck).toBeUndefined();
+    test('redisHealthCheck is now FIXED and exported', () => {
+      // FIXED: index.js now correctly imports from redis-token-bucket-middleware.js
+      expect(ratelimiter.redisHealthCheck).toBeDefined();
+      expect(typeof ratelimiter.redisHealthCheck).toBe('function');
     });
 
     test('defaultMiddlewareOptions is undefined (BUG)', () => {
@@ -85,14 +85,12 @@ describe('Package Exports - src/index.js', () => {
     });
   });
 
-  describe('Utility Exports - Issues', () => {
-    test('ConfigManager is exported as an object, not a class', () => {
-      // ConfigManager from config-manager.js exports {ConfigManager, getConfigManager}
-      // but index.js exports the whole object, not just the class
+  describe('Utility Exports - FIXED', () => {
+    test('ConfigManager is correctly exported as a class', () => {
+      // FIXED: ConfigManager is now correctly exported as the class itself
       expect(ratelimiter.ConfigManager).toBeDefined();
-      expect(typeof ratelimiter.ConfigManager).toBe('object');
-      expect(ratelimiter.ConfigManager).toHaveProperty('ConfigManager');
-      expect(typeof ratelimiter.ConfigManager.ConfigManager).toBe('function');
+      expect(typeof ratelimiter.ConfigManager).toBe('function');
+      expect(ratelimiter.ConfigManager.name).toBe('ConfigManager');
     });
 
     test('loadConfig is undefined (BUG)', () => {
@@ -103,16 +101,19 @@ describe('Package Exports - src/index.js', () => {
   });
 
   describe('Complete Export Structure', () => {
-    test('exports expected working properties', () => {
+    test('exports all working properties', () => {
       const workingExports = [
         'TokenBucket',
         'RedisTokenBucket',
         'tokenBucketMiddleware',
+        'redisTokenBucketMiddleware', // FIXED
         'setRequestCost',
         'perUserRateLimit',
         'perIpRateLimit',
         'globalRateLimit',
-        'ConfigManager'
+        'redisHealthCheck', // FIXED
+        'ConfigManager',
+        'getConfigManager'
       ];
 
       workingExports.forEach(exportName => {
@@ -121,23 +122,20 @@ describe('Package Exports - src/index.js', () => {
       });
     });
 
-    test('has properties for broken exports (they are undefined)', () => {
-      const brokenExports = [
-        'redisTokenBucketMiddleware',
-        'redisHealthCheck',
-        'defaultMiddlewareOptions',
-        'loadConfig'
+    test('removed exports are undefined', () => {
+      const removedExports = [
+        'defaultMiddlewareOptions', // Never existed
+        'loadConfig' // Never existed as standalone
       ];
 
-      brokenExports.forEach(exportName => {
-        expect(ratelimiter).toHaveProperty(exportName);
+      removedExports.forEach(exportName => {
         expect(ratelimiter[exportName]).toBeUndefined();
       });
     });
 
-    test('exports 12 properties total', () => {
+    test('exports 11 properties total', () => {
       const exportKeys = Object.keys(ratelimiter);
-      expect(exportKeys.length).toBe(12);
+      expect(exportKeys.length).toBe(11);
     });
   });
 
@@ -162,9 +160,8 @@ describe('Package Exports - src/index.js', () => {
       const { ConfigManager } = ratelimiter;
 
       expect(ConfigManager).toBeDefined();
-      expect(typeof ConfigManager).toBe('object');
-      expect(ConfigManager.ConfigManager).toBeDefined();
-      expect(typeof ConfigManager.ConfigManager).toBe('function');
+      expect(typeof ConfigManager).toBe('function');
+      expect(ConfigManager.name).toBe('ConfigManager');
     });
   });
 
@@ -219,10 +216,10 @@ describe('Package Exports - src/index.js', () => {
       });
     });
 
-    test('ConfigManager is an object containing the actual class', () => {
-      expect(typeof ratelimiter.ConfigManager).toBe('object');
-      expect(typeof ratelimiter.ConfigManager.ConfigManager).toBe('function');
-      expect(typeof ratelimiter.ConfigManager.getConfigManager).toBe('function');
+    test('ConfigManager is exported as a class', () => {
+      expect(typeof ratelimiter.ConfigManager).toBe('function');
+      expect(ratelimiter.ConfigManager.name).toBe('ConfigManager');
+      expect(typeof ratelimiter.getConfigManager).toBe('function');
     });
   });
 
@@ -245,34 +242,28 @@ describe('Package Exports - src/index.js', () => {
   });
 
   describe('Documentation of Known Bugs', () => {
-    test('BUG REPORT: Missing Redis middleware exports', () => {
-      // The following should be fixed in index.js:
-      // 1. Import redisTokenBucketMiddleware from redis-token-bucket-middleware.js
-      // 2. Import redisHealthCheck from redis-token-bucket-middleware.js
-      // 3. Remove or properly export defaultMiddlewareOptions
+    test('FIXED: Redis middleware exports now working', () => {
+      // FIXED in index.js:
+      // 1. ✅ Import redisTokenBucketMiddleware from redis-token-bucket-middleware.js
+      // 2. ✅ Import redisHealthCheck from redis-token-bucket-middleware.js
+      // 3. ✅ Removed defaultMiddlewareOptions (never existed)
       
-      const bugs = {
-        redisTokenBucketMiddleware: ratelimiter.redisTokenBucketMiddleware,
-        redisHealthCheck: ratelimiter.redisHealthCheck,
-        defaultMiddlewareOptions: ratelimiter.defaultMiddlewareOptions
-      };
-
-      // All should be undefined (documenting the bug)
-      Object.entries(bugs).forEach(([name, value]) => {
-        expect(value).toBeUndefined();
-      });
+      expect(ratelimiter.redisTokenBucketMiddleware).toBeDefined();
+      expect(typeof ratelimiter.redisTokenBucketMiddleware).toBe('function');
+      
+      expect(ratelimiter.redisHealthCheck).toBeDefined();
+      expect(typeof ratelimiter.redisHealthCheck).toBe('function');
+      
+      // defaultMiddlewareOptions correctly not exported (never existed)
+      expect(ratelimiter.defaultMiddlewareOptions).toBeUndefined();
     });
 
-    test('BUG REPORT: ConfigManager export structure', () => {
-      // ConfigManager should be exported as the class itself, not the module object
-      // Users expect: const { ConfigManager } = require('@rate-limiter/core');
-      // But get: const { ConfigManager } = require('@rate-limiter/core'); // ConfigManager.ConfigManager is the actual class
+    test('FIXED: ConfigManager export structure', () => {
+      // FIXED: ConfigManager is now exported as a function (class)
+      // Users can now use: const { ConfigManager } = require('@rate-limiter/core');
       
-      expect(typeof ratelimiter.ConfigManager).toBe('object');
-      expect(typeof ratelimiter.ConfigManager.ConfigManager).toBe('function');
-      
-      // This would be the expected behavior (currently fails):
-      // expect(typeof ratelimiter.ConfigManager).toBe('function');
+      expect(typeof ratelimiter.ConfigManager).toBe('function');
+      expect(ratelimiter.ConfigManager.name).toBe('ConfigManager');
     });
 
     test('BUG REPORT: loadConfig is undefined', () => {
