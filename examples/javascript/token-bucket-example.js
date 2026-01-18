@@ -81,7 +81,7 @@ for (let i = 1; i <= 60; i++) {
 }
 
 console.log(`Results: ${allowed} allowed, ${rejected} rejected`);
-console.log(`Bucket state:`, burstLimiter.getState());
+console.log('Bucket state:', burstLimiter.getState());
 
 // Example 4: Multi-token Requests (e.g., file uploads)
 console.log('\n' + '='.repeat(60));

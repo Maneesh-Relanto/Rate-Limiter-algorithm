@@ -212,7 +212,7 @@ describe('ConfigManager', () => {
       const config = configManager.getRateLimit('nonexistent.config');
       
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Rate limit config 'nonexistent.config' not found")
+        expect.stringContaining('Rate limit config \'nonexistent.config\' not found')
       );
       expect(config.capacity).toBe(100); // default
       expect(config.refillRate).toBe(10); // default

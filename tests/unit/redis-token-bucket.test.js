@@ -15,7 +15,7 @@ class MockRedisClient {
 
   async eval(script, numKeys, key, ...args) {
     if (this.shouldFail || this.failOnce) {
-      if (this.failOnce) this.failOnce = false;
+      if (this.failOnce) {this.failOnce = false;}
       throw new Error('Redis connection error');
     }
 
@@ -25,7 +25,7 @@ class MockRedisClient {
     const tokensRequired = parseFloat(args[2]);
     const now = parseFloat(args[3]);
 
-    let state = this.data.get(key) || {
+    const state = this.data.get(key) || {
       tokens: capacity,
       lastRefill: now
     };

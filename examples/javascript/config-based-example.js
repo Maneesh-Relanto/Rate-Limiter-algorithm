@@ -43,7 +43,7 @@ const loginConfig = configManager.getRateLimit('authentication.login');
 const loginLimiter = new TokenBucket(loginConfig.capacity, loginConfig.refillRate);
 
 console.log(`Login Config: ${loginConfig.description}`);
-console.log(`Simulating login attempts:\n`);
+console.log('Simulating login attempts:\n');
 
 for (let i = 1; i <= 7; i++) {
   const allowed = loginLimiter.allowRequest();
@@ -102,7 +102,7 @@ const envConfig = configManager.getRateLimitFromEnv('CUSTOM_LIMIT', 'default');
 console.log('Using environment variables:');
 console.log(`  CUSTOM_LIMIT_CAPACITY=${process.env.CUSTOM_LIMIT_CAPACITY}`);
 console.log(`  CUSTOM_LIMIT_REFILL=${process.env.CUSTOM_LIMIT_REFILL}`);
-console.log(`\nResolved config:`);
+console.log('\nResolved config:');
 console.log(`  Capacity: ${envConfig.capacity}`);
 console.log(`  Refill Rate: ${envConfig.refillRate}/sec`);
 

@@ -715,11 +715,13 @@ class RedisTokenBucket extends EventEmitter {
 
     // Check if redis client has eval method (ioredis style)
     if (typeof this.redis.eval === 'function') {
+      // eslint-disable-next-line no-return-await
       return await this.redis.eval(this.luaScript, 1, this.key, ...args);
     }
     
     // Check if redis client has sendCommand (node-redis v4+ style)
     if (typeof this.redis.sendCommand === 'function') {
+      // eslint-disable-next-line no-return-await
       return await this.redis.sendCommand([
         'EVAL',
         this.luaScript,
@@ -731,6 +733,7 @@ class RedisTokenBucket extends EventEmitter {
 
     // Check if redis client has evalsha/script (node-redis v3 style)
     if (typeof this.redis.evalAsync === 'function') {
+      // eslint-disable-next-line no-return-await
       return await this.redis.evalAsync(this.luaScript, 1, this.key, ...args);
     }
 

@@ -158,9 +158,9 @@ app.use('/api/protected', tokenBucketMiddleware({
   refillRate: 1.67,
   skip: (req) => {
     // Skip health checks
-    if (req.path === '/health') return true;
+    if (req.path === '/health') {return true;}
     // Skip admin users
-    if (req.headers['x-admin'] === 'true') return true;
+    if (req.headers['x-admin'] === 'true') {return true;}
     return false;
   }
 }));
@@ -284,7 +284,7 @@ if (require.main === module) {
     console.log(`  curl http://localhost:${PORT}/api/public/status`);
     console.log(`  curl http://localhost:${PORT}/api/guest/data`);
     console.log(`  curl -H "X-User-Id: user123" http://localhost:${PORT}/api/user/profile`);
-    console.log(`\nPress Ctrl+C to stop the server\n`);
+    console.log('\nPress Ctrl+C to stop the server\n');
   });
 }
 

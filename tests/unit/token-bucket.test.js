@@ -205,7 +205,7 @@ describe('TokenBucket', () => {
       // Fire 100 requests rapidly
       let allowed = 0;
       for (let i = 0; i < 100; i++) {
-        if (bucket.allowRequest()) allowed++;
+        if (bucket.allowRequest()) {allowed++;}
       }
 
       expect(allowed).toBe(100);
@@ -231,7 +231,7 @@ describe('TokenBucket', () => {
       // Should have ~10 tokens now
       let allowed = 0;
       for (let i = 0; i < 15; i++) {
-        if (bucket.allowRequest()) allowed++;
+        if (bucket.allowRequest()) {allowed++;}
       }
       expect(allowed).toBeGreaterThanOrEqual(9);
       expect(allowed).toBeLessThanOrEqual(11);
@@ -251,7 +251,7 @@ describe('TokenBucket', () => {
       // Should be able to make ~100 total requests now
       let additionalAllowed = 0;
       for (let i = 0; i < 60; i++) {
-        if (bucket.allowRequest()) additionalAllowed++;
+        if (bucket.allowRequest()) {additionalAllowed++;}
       }
 
       // More lenient range to account for timing variations

@@ -234,7 +234,7 @@ describe('Redis Token Bucket Express Middleware', () => {
     it('should handle cost-based token consumption', async () => {
       app.use(setRequestCost((req) => {
         // Different costs for different endpoints
-        if (req.path === '/expensive') return 5;
+        if (req.path === '/expensive') {return 5;}
         return 1;
       }));
 

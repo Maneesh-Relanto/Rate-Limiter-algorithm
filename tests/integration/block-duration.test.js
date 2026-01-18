@@ -227,7 +227,7 @@ describe('Block Duration Feature', () => {
         },
         async get(key) {
           const item = this.storage.get(key);
-          if (!item) return null;
+          if (!item) {return null;}
           if (Date.now() > item.expiry) {
             this.storage.delete(key);
             return null;
@@ -237,7 +237,7 @@ describe('Block Duration Feature', () => {
         async del(...keys) {
           let deleted = 0;
           for (const key of keys) {
-            if (this.storage.delete(key)) deleted++;
+            if (this.storage.delete(key)) {deleted++;}
           }
           return deleted;
         },

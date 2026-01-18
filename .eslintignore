@@ -1,0 +1,13 @@
+# Browser-based files (not Node.js code)
+examples/demo-app/public/
+
+# External dependencies
+node_modules/
+
+# Build outputs
+coverage/
+dist/
+build/
+
+# Configuration examples that may have intentional issues
+*.example.js
