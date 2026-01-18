@@ -3,8 +3,8 @@
 > A comprehensive, well-documented collection of rate limiting algorithms with practical implementations, interactive playgrounds, and detailed analysis.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/tests-228%20passing-success.svg)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-96.07%25-brightgreen.svg)](coverage/)
+[![Tests](https://img.shields.io/badge/tests-383%20passing-success.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-89.4%25-brightgreen.svg)](coverage/)
 [![Code Quality](https://img.shields.io/badge/code%20quality-A+-success.svg)](src/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](package.json)
@@ -12,6 +12,8 @@
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/Maneesh-Relanto/rate-limiter)
 [![Test Framework](https://img.shields.io/badge/tested%20with-Jest-C21325.svg)](https://jestjs.io/)
 [![Linted](https://img.shields.io/badge/code%20style-ESLint%20%2B%20Prettier-blueviolet.svg)](.eslintrc.js)
+[![TypeScript](https://img.shields.io/badge/TypeScript-definitions-blue.svg)](index.d.ts)
+[![Security](https://img.shields.io/badge/security-eslint--plugin--security-green.svg)](.eslintrc.js)
 
 ## 🎯 Project Mission
 
@@ -44,12 +46,12 @@ Our differentiating factors:
   - 38 comprehensive unit tests
 
 ### Testing & Quality Assurance
-- **228/228 tests passing** ✅
-- **96.07% code coverage** across entire codebase
-- **7 test suites**: Unit tests, integration tests, distributed scenarios
+- **383/383 tests passing** ✅
+- **89.4% code coverage** across entire codebase
+- **12 test suites**: Unit tests, integration tests, distributed scenarios, TypeScript validation
 - **Jest framework**: Modern testing with mocking and async support
 - **ESLint + Prettier**: Code style and quality enforced
-- **SonarQube compliant**: Zero code quality issues
+- **eslint-plugin-security**: 13 security rules active (ReDoS, eval, unsafe crypto detection)
 - **Continuous testing**: All PRs require passing tests
 
 ### Configuration
@@ -75,7 +77,30 @@ Our differentiating factors:
 - ✅ Standard RateLimit headers (draft spec) + legacy X-RateLimit headers
 - ✅ 18 integration tests
 - ✅ Complete example application with 8 real-world scenarios
-- 📚 **[Express Middleware Guide →](EXPRESS_MIDDLEWARE_GUIDE.md)**
+- 📚 **[Express Middleware Guide →](docs/EXPRESS_MIDDLEWARE_GUIDE.md)**
+
+### TypeScript Support
+- ✅ Full TypeScript definitions (`.d.ts` files)
+- ✅ Complete type coverage for all classes and methods
+- ✅ 10+ event type definitions for event emitters
+- ✅ Type-safe Express middleware interfaces
+- ✅ IntelliSense support in IDEs
+- 📚 **[Type Definitions →](index.d.ts)**
+
+### Event Emitters & Observability
+- ✅ **10 event types** for real-time monitoring
+- ✅ Events: allowed, rateLimitExceeded, penalty, reward, blocked, unblocked, reset, redisError, insuranceActivated, insuranceDeactivated
+- ✅ Type-safe event listeners with TypeScript
+- ✅ Built-in observability for production monitoring
+- ✅ Custom event handlers for metrics collection
+
+### Security & Code Quality
+- ✅ **eslint-plugin-security** with 13 active rules
+- ✅ ReDoS protection, eval detection, unsafe Buffer checks
+- ✅ Crypto vulnerability detection (weak PRNG, unsafe algorithms)
+- ✅ Snyk CLI integration for dependency scanning
+- ✅ npm audit with zero known vulnerabilities
+- ✅ Automated security scanning via npm scripts
 
 ---
 
