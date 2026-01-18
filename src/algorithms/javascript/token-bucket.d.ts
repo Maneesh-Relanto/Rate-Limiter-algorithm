@@ -173,41 +173,65 @@ export interface ResetEventData {
 export class TokenBucket extends EventEmitter {
   /**
    * Create a new TokenBucket instance
-   * @param options - Configuration options
+   * @param capacity - Maximum number of tokens the bucket can hold
+   * @param refillRate - Number of tokens added per second
    */
-  constructor(options: TokenBucketOptions);
+  constructor(capacity: number, refillRate: number);
 
   /**
    * Check if a request is allowed and consume tokens if so
    * @param cost - Number of tokens to consume (default: 1)
-   * @returns Result indicating if request was allowed
+   * @returns True if request allowed, false otherwise
    */
-  allowRequest(cost?: number): AllowRequestResult;
+  allowRequest(cost?: number): boolean;
 
   /**
    * Apply a penalty by removing tokens
    * @param penaltyTokens - Number of tokens to remove
-   * @returns New token count (may be negative)
+   * @returns Object with penalty details and remaining tokens
    */
-  penalty(penaltyTokens: number): number;
+  penalty(penaltyTokens: number): {
+    penaltyApplied: number;
+    remainingTokens: number;
+    beforePenalty: number;
+    timestamp: number;
+  };
 
   /**
    * Apply a reward by adding tokens
    * @param rewardTokens - Number of tokens to add
-   * @returns New token count (capped at capacity)
+   * @returns Object with reward details and remaining tokens
    */
-  reward(rewardTokens: number): number;
+  reward(rewardTokens: number): {
+    rewardApplied: number;
+    remainingTokens: number;
+    beforeReward: number;
+    timestamp: number;
+  };
 
   /**
    * Block all requests for a specified duration
    * @param durationMs - Duration in milliseconds
+   * @returns Object with block details
    */
-  block(durationMs: number): void;
+  block(durationMs: number): {
+    blocked: true;
+    blockUntil: number;
+    blockDuration: number;
+    unblockAt: string;
+    timestamp: number;
+  };
 
   /**
    * Unblock and allow requests immediately
+   * @returns Object with unblock details
    */
-  unblock(): void;
+  unblock(): {
+    unblocked: true;
+    wasBlocked: boolean;
+    reason: string;
+    timestamp: number;
+  };
 
   /**
    * Check if the bucket is currently blocked
@@ -303,3 +327,6 @@ export class TokenBucket extends EventEmitter {
    */
   emit(event: string | symbol, ...args: any[]): boolean;
 }
+
+// Default export to match module.exports = TokenBucket in JS
+export default TokenBucket;

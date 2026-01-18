@@ -341,3 +341,6 @@ export class RedisTokenBucket extends EventEmitter {
    */
   emit(event: string | symbol, ...args: any[]): boolean;
 }
+
+// Default export to match module.exports = RedisTokenBucket in JS
+export default RedisTokenBucket;
