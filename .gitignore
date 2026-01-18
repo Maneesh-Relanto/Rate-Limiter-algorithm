@@ -42,6 +42,12 @@ coverage/
 .pytest_cache/
 .nyc_output/
 
+# Internal analysis and findings (do not commit)
+*ANALYSIS*.md
+coverage-analysis.txt
+*-findings.md
+*-issues.md
+
 # OS
 Thumbs.db
 Desktop.ini
