@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
-    "types": ["node", "express"]
+    "types": ["node", "express", "jest"]
   },
   "include": [
     "tests/typescript/**/*.ts"
