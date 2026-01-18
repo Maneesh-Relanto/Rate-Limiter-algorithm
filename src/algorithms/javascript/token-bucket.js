@@ -1,3 +1,5 @@
+const EventEmitter = require('events');
+
 /**
  * Token Bucket Rate Limiting Algorithm
  * 
@@ -5,15 +7,27 @@
  * Each request consumes one token. If no tokens are available, the request is rejected.
  * The bucket has a maximum capacity to prevent unlimited accumulation.
  * 
+ * Events emitted:
+ * - 'allowed': Request was allowed { tokens, remainingTokens, cost, timestamp }
+ * - 'rateLimitExceeded': Request was denied { tokens, cost, retryAfter, timestamp }
+ * - 'penalty': Penalty applied { penaltyApplied, remainingTokens, reason, timestamp }
+ * - 'reward': Reward given { rewardApplied, remainingTokens, reason, timestamp }
+ * - 'blocked': Bucket was blocked { duration, reason, timestamp }
+ * - 'unblocked': Bucket was unblocked { reason, timestamp }
+ * - 'reset': Bucket was reset { oldTokens, newTokens, timestamp }
+ * 
  * @example
  * const limiter = new TokenBucket(100, 10); // 100 capacity, 10 tokens/sec
+ * limiter.on('rateLimitExceeded', (data) => {
+ *   console.log(`Rate limit exceeded. Retry after ${data.retryAfter}ms`);
+ * });
  * if (limiter.allowRequest()) {
  *   // Process request
  * } else {
  *   // Reject request
  * }
  */
-class TokenBucket {
+class TokenBucket extends EventEmitter {
   /**
    * Creates a new Token Bucket rate limiter
    * 
@@ -22,6 +36,8 @@ class TokenBucket {
    * @throws {Error} If capacity or refillRate are invalid
    */
   constructor(capacity, refillRate) {
+    super();
+    
     if (!Number.isFinite(capacity) || capacity <= 0) {
       throw new Error('Capacity must be a positive number');
     }
@@ -49,6 +65,14 @@ class TokenBucket {
 
     // Check if blocked
     if (this.isBlocked()) {
+      const blockTimeRemaining = this.getBlockTimeRemaining();
+      this.emit('rateLimitExceeded', {
+        tokens: Math.floor(this.tokens),
+        cost: tokensRequired,
+        retryAfter: blockTimeRemaining,
+        reason: 'blocked',
+        timestamp: Date.now()
+      });
       return false;
     }
 
@@ -56,9 +80,23 @@ class TokenBucket {
 
     if (this.tokens >= tokensRequired) {
       this.tokens -= tokensRequired;
+      this.emit('allowed', {
+        tokens: Math.floor(this.tokens),
+        remainingTokens: Math.floor(this.tokens),
+        cost: tokensRequired,
+        timestamp: Date.now()
+      });
       return true;
     }
 
+    const retryAfter = this.getTimeUntilNextToken(tokensRequired);
+    this.emit('rateLimitExceeded', {
+      tokens: Math.floor(this.tokens),
+      cost: tokensRequired,
+      retryAfter,
+      reason: 'insufficient_tokens',
+      timestamp: Date.now()
+    });
     return false;
   }
 
@@ -129,11 +167,16 @@ class TokenBucket {
     const beforePenalty = this.tokens;
     this.tokens -= points;
     
-    return {
+    const result = {
       penaltyApplied: points,
       remainingTokens: Math.floor(this.tokens),
-      beforePenalty: Math.floor(beforePenalty)
+      beforePenalty: Math.floor(beforePenalty),
+      timestamp: Date.now()
     };
+    
+    this.emit('penalty', result);
+    
+    return result;
   }
 
   /**
@@ -163,12 +206,17 @@ class TokenBucket {
     this.tokens = Math.min(this.capacity, this.tokens + points);
     const actualReward = this.tokens - beforeReward;
     
-    return {
+    const result = {
       rewardApplied: Math.floor(actualReward),
       remainingTokens: Math.floor(this.tokens),
       beforeReward: Math.floor(beforeReward),
-      cappedAtCapacity: this.tokens >= this.capacity
+      cappedAtCapacity: this.tokens >= this.capacity,
+      timestamp: Date.now()
     };
+    
+    this.emit('reward', result);
+    
+    return result;
   }
 
   /**
@@ -211,12 +259,17 @@ class TokenBucket {
     
     this.lastRefill = Date.now();
     
-    return {
+    const result = {
       oldTokens,
       newTokens: Math.floor(this.tokens),
       capacity: this.capacity,
-      reset: true
+      reset: true,
+      timestamp: Date.now()
     };
+    
+    this.emit('reset', result);
+    
+    return result;
   }
 
   /**
@@ -284,12 +337,17 @@ class TokenBucket {
 
     this.blockUntil = Date.now() + durationMs;
     
-    return {
+    const result = {
       blocked: true,
       blockUntil: this.blockUntil,
       blockDuration: durationMs,
-      unblockAt: new Date(this.blockUntil).toISOString()
+      unblockAt: new Date(this.blockUntil).toISOString(),
+      timestamp: Date.now()
     };
+    
+    this.emit('blocked', result);
+    
+    return result;
   }
 
   /**
@@ -351,10 +409,17 @@ class TokenBucket {
     const wasBlocked = this.blockUntil !== null;
     this.blockUntil = null;
     
-    return {
+    const result = {
       unblocked: true,
-      wasBlocked: wasBlocked
+      wasBlocked: wasBlocked,
+      timestamp: Date.now()
     };
+    
+    if (wasBlocked) {
+      this.emit('unblocked', result);
+    }
+    
+    return result;
   }
 
   /**

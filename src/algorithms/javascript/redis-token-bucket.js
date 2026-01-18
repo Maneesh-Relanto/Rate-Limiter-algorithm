@@ -1,18 +1,36 @@
+const EventEmitter = require('events');
+const TokenBucket = require('./token-bucket');
+
 /**
  * Redis-based Token Bucket Rate Limiting Algorithm
  * 
  * Distributed implementation using Redis for shared state across multiple servers.
  * Uses Lua scripts for atomic operations to prevent race conditions.
  * 
+ * Events emitted (inherits all from TokenBucket):
+ * - 'allowed': Request was allowed
+ * - 'rateLimitExceeded': Request was denied
+ * - 'penalty': Penalty applied
+ * - 'reward': Reward given
+ * - 'blocked': Bucket was blocked
+ * - 'unblocked': Bucket was unblocked
+ * - 'reset': Bucket was reset
+ * - 'insuranceActivated': Failover to in-memory limiter { reason, timestamp }
+ * - 'insuranceDeactivated': Returned to Redis { reason, timestamp }
+ * - 'redisError': Redis operation failed { operation, error, timestamp }
+ * 
  * @example
  * const limiter = new RedisTokenBucket(redisClient, 'user:123', 100, 10);
+ * limiter.on('insuranceActivated', (data) => {
+ *   console.log('Failover activated:', data);
+ * });
  * if (await limiter.allowRequest()) {
  *   // Process request
  * } else {
  *   // Reject request
  * }
  */
-class RedisTokenBucket {
+class RedisTokenBucket extends EventEmitter {
   /**
    * Creates a new Redis-based Token Bucket rate limiter
    * 
@@ -28,6 +46,7 @@ class RedisTokenBucket {
    * @throws {Error} If parameters are invalid
    */
   constructor(redisClient, key, capacity, refillRate, options = {}) {
+    super();
     if (!redisClient) {
       throw new Error('Redis client is required');
     }
@@ -56,13 +75,21 @@ class RedisTokenBucket {
     
     // Initialize insurance limiter if enabled
     if (this.insuranceEnabled) {
-      const TokenBucket = require('./token-bucket');
       const insuranceCapacity = options.insuranceCapacity || Math.max(1, Math.floor(capacity * 0.1));
       const insuranceRefillRate = options.insuranceRefillRate || Math.max(0.1, refillRate * 0.1);
       
       this.insuranceLimiter = new TokenBucket(insuranceCapacity, insuranceRefillRate);
       this.insuranceCapacity = insuranceCapacity;
       this.insuranceRefillRate = insuranceRefillRate;
+      
+      // Forward insurance limiter events
+      this.insuranceLimiter.on('allowed', (data) => this.emit('allowed', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('rateLimitExceeded', (data) => this.emit('rateLimitExceeded', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('penalty', (data) => this.emit('penalty', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('reward', (data) => this.emit('reward', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('blocked', (data) => this.emit('blocked', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('unblocked', (data) => this.emit('unblocked', { ...data, source: 'insurance' }));
+      this.insuranceLimiter.on('reset', (data) => this.emit('reset', { ...data, source: 'insurance' }));
     }
 
     // Define Lua script for atomic token bucket operations
@@ -126,7 +153,17 @@ class RedisTokenBucket {
 
     try {
       // Check if blocked first
-      if (await this.isBlocked()) {
+      const blocked = await this.isBlocked();
+      if (blocked) {
+        const blockTimeRemaining = await this.getBlockTimeRemaining();
+        this.emit('rateLimitExceeded', {
+          tokens: 0,
+          cost: tokensRequired,
+          retryAfter: blockTimeRemaining,
+          reason: 'blocked',
+          source: 'redis',
+          timestamp: Date.now()
+        });
         return false;
       }
 
@@ -140,17 +177,61 @@ class RedisTokenBucket {
           this.insuranceActive = false;
           // Reset insurance limiter on Redis recovery
           this.insuranceLimiter.reset();
+          this.emit('insuranceDeactivated', {
+            reason: 'redis_recovered',
+            failureCount: this.redisFailureCount,
+            timestamp: Date.now()
+          });
         }
       }
       
-      return result[0] === 1;
+      const allowed = result[0] === 1;
+      const tokens = Math.floor(result[1]);
+      
+      if (allowed) {
+        this.emit('allowed', {
+          tokens,
+          remainingTokens: tokens,
+          cost: tokensRequired,
+          source: 'redis',
+          timestamp: Date.now()
+        });
+      } else {
+        const retryAfter = await this.getTimeUntilNextToken(tokensRequired);
+        this.emit('rateLimitExceeded', {
+          tokens,
+          cost: tokensRequired,
+          retryAfter,
+          reason: 'insufficient_tokens',
+          source: 'redis',
+          timestamp: Date.now()
+        });
+      }
+      
+      return allowed;
     } catch (error) {
       console.error('Redis error in allowRequest:', error.message);
+      
+      this.emit('redisError', {
+        operation: 'allowRequest',
+        error: error.message,
+        timestamp: Date.now()
+      });
       
       // Use insurance limiter if enabled
       if (this.insuranceEnabled && this.insuranceLimiter) {
         this.redisFailureCount++;
+        const wasActive = this.insuranceActive;
         this.insuranceActive = true;
+        
+        if (!wasActive) {
+          this.emit('insuranceActivated', {
+            reason: 'redis_error',
+            error: error.message,
+            failureCount: this.redisFailureCount,
+            timestamp: Date.now()
+          });
+        }
         
         const allowed = this.insuranceLimiter.allowRequest(tokensRequired);
         return allowed;
@@ -485,13 +566,24 @@ class RedisTokenBucket {
         throw new Error('Unsupported Redis client: no eval method found');
       }
 
-      return {
+      const data = {
         penaltyApplied: result[0],
         remainingTokens: result[1],
-        beforePenalty: result[2]
+        beforePenalty: result[2],
+        source: 'redis',
+        timestamp: Date.now()
       };
+      
+      this.emit('penalty', data);
+      
+      return data;
     } catch (error) {
       console.error('Redis error in penalty:', error.message);
+      this.emit('redisError', {
+        operation: 'penalty',
+        error: error.message,
+        timestamp: Date.now()
+      });
       throw error;
     }
   }
@@ -581,14 +673,25 @@ class RedisTokenBucket {
         throw new Error('Unsupported Redis client: no eval method found');
       }
 
-      return {
+      const data = {
         rewardApplied: result[0],
         remainingTokens: result[1],
         beforeReward: result[2],
-        cappedAtCapacity: result[3] === 1
+        cappedAtCapacity: result[3] === 1,
+        source: 'redis',
+        timestamp: Date.now()
       };
+      
+      this.emit('reward', data);
+      
+      return data;
     } catch (error) {
       console.error('Redis error in reward:', error.message);
+      this.emit('redisError', {
+        operation: 'reward',
+        error: error.message,
+        timestamp: Date.now()
+      });
       throw error;
     }
   }
