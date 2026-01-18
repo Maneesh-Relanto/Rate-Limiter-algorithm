@@ -259,6 +259,231 @@ describe('TokenBucket', () => {
       expect(additionalAllowed).toBeLessThanOrEqual(60);
     }, 35000); // Increase timeout for this test
   });
+
+  describe('penalty', () => {
+    it('should remove tokens as penalty', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Start with 100 tokens
+      expect(bucket.getAvailableTokens()).toBe(100);
+      
+      // Apply 10 token penalty
+      const result = bucket.penalty(10);
+      
+      expect(result.penaltyApplied).toBe(10);
+      expect(result.remainingTokens).toBe(90);
+      expect(result.beforePenalty).toBe(100);
+      expect(bucket.getAvailableTokens()).toBe(90);
+    });
+
+    it('should allow tokens to go below zero (debt)', () => {
+      const bucket = new TokenBucket(50, 10);
+      
+      // Consume some tokens
+      bucket.allowRequest(40);
+      expect(bucket.getAvailableTokens()).toBe(10);
+      
+      // Apply heavy penalty
+      const result = bucket.penalty(20);
+      
+      expect(result.remainingTokens).toBe(-10);
+      expect(bucket.getAvailableTokens()).toBe(-10);
+    });
+
+    it('should throw error for invalid penalty points', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      expect(() => bucket.penalty(0)).toThrow('Penalty points must be a positive number');
+      expect(() => bucket.penalty(-5)).toThrow('Penalty points must be a positive number');
+      expect(() => bucket.penalty(NaN)).toThrow('Penalty points must be a positive number');
+      expect(() => bucket.penalty('10')).toThrow('Penalty points must be a positive number');
+    });
+
+    it('should use default penalty of 1 if no argument provided', () => {
+      const bucket = new TokenBucket(50, 10);
+      
+      const result = bucket.penalty();
+      
+      expect(result.penaltyApplied).toBe(1);
+      expect(result.remainingTokens).toBe(49);
+    });
+
+    it('should handle multiple consecutive penalties', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      bucket.penalty(10);
+      bucket.penalty(20);
+      bucket.penalty(5);
+      
+      expect(bucket.getAvailableTokens()).toBe(65);
+    });
+
+    it('should apply penalty after refill', async () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Consume tokens
+      bucket.allowRequest(50);
+      expect(bucket.getAvailableTokens()).toBe(50);
+      
+      // Wait for refill
+      await sleep(1000);
+      expect(bucket.getAvailableTokens()).toBeGreaterThanOrEqual(59);
+      
+      // Apply penalty
+      bucket.penalty(20);
+      expect(bucket.getAvailableTokens()).toBeLessThan(45);
+    });
+  });
+
+  describe('reward', () => {
+    it('should add tokens as reward', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Consume some tokens first
+      bucket.allowRequest(40);
+      const tokensAfterConsume = bucket.getAvailableTokens();
+      expect(tokensAfterConsume).toBe(60);
+      
+      // Apply reward immediately (before any refill)
+      const result = bucket.reward(10);
+      
+      // The reward should be applied
+      expect(result.rewardApplied).toBeGreaterThanOrEqual(9); // Allow for small refill
+      expect(result.rewardApplied).toBeLessThanOrEqual(10);
+      expect(result.remainingTokens).toBeGreaterThanOrEqual(69);
+      expect(result.remainingTokens).toBeLessThanOrEqual(70);
+      expect(result.cappedAtCapacity).toBe(false);
+      expect(bucket.getAvailableTokens()).toBeGreaterThanOrEqual(69);
+    });
+
+    it('should respect capacity limit (cap at max)', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Start with full bucket
+      expect(bucket.getAvailableTokens()).toBe(100);
+      
+      // Try to reward beyond capacity
+      const result = bucket.reward(50);
+      
+      expect(result.rewardApplied).toBe(0); // Capped
+      expect(result.remainingTokens).toBe(100);
+      expect(result.cappedAtCapacity).toBe(true);
+      expect(bucket.getAvailableTokens()).toBe(100);
+    });
+
+    it('should partially reward when approaching capacity', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Consume tokens to 95
+      bucket.allowRequest(5);
+      expect(bucket.getAvailableTokens()).toBe(95);
+      
+      // Try to reward 10 (should only add 5)
+      const result = bucket.reward(10);
+      
+      expect(result.rewardApplied).toBe(5);
+      expect(result.remainingTokens).toBe(100);
+      expect(result.cappedAtCapacity).toBe(true);
+      expect(bucket.getAvailableTokens()).toBe(100);
+    });
+
+    it('should throw error for invalid reward points', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      expect(() => bucket.reward(0)).toThrow('Reward points must be a positive number');
+      expect(() => bucket.reward(-5)).toThrow('Reward points must be a positive number');
+      expect(() => bucket.reward(NaN)).toThrow('Reward points must be a positive number');
+      expect(() => bucket.reward('10')).toThrow('Reward points must be a positive number');
+    });
+
+    it('should use default reward of 1 if no argument provided', () => {
+      const bucket = new TokenBucket(50, 10);
+      
+      bucket.allowRequest(10);
+      const result = bucket.reward();
+      
+      expect(result.rewardApplied).toBe(1);
+      expect(result.remainingTokens).toBe(41);
+    });
+
+    it('should handle reward bringing tokens from negative to positive', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      // Apply heavy penalty
+      bucket.penalty(120);
+      expect(bucket.getAvailableTokens()).toBe(-20);
+      
+      // Reward to bring back positive
+      const result = bucket.reward(30);
+      
+      expect(result.rewardApplied).toBe(30);
+      expect(result.remainingTokens).toBe(10);
+      expect(bucket.getAvailableTokens()).toBe(10);
+    });
+
+    it('should handle multiple consecutive rewards with capacity limit', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      bucket.allowRequest(50);
+      bucket.reward(20); // 70
+      bucket.reward(20); // 90
+      bucket.reward(20); // 100 (capped)
+      
+      expect(bucket.getAvailableTokens()).toBe(100);
+    });
+  });
+
+  describe('penalty and reward combined', () => {
+    it('should handle penalty then reward scenario', () => {
+      const bucket = new TokenBucket(100, 10);
+      
+      bucket.allowRequest(50); // 50 tokens
+      bucket.penalty(20);       // 30 tokens
+      bucket.reward(10);        // 40 tokens
+      
+      expect(bucket.getAvailableTokens()).toBe(40);
+    });
+
+    it('should simulate failed login scenario with penalties and recovery', async () => {
+      const bucket = new TokenBucket(10, 1); // 10 capacity, 1/sec refill
+      
+      // 3 failed login attempts - 5 token penalty each
+      bucket.penalty(5);
+      bucket.penalty(5);
+      bucket.penalty(5);
+      
+      // User now has negative tokens (-5)
+      expect(bucket.getAvailableTokens()).toBe(-5);
+      expect(bucket.allowRequest()).toBe(false);
+      
+      // Wait 6 seconds for refill (should get 6 tokens)
+      await sleep(6000);
+      expect(bucket.getAvailableTokens()).toBeGreaterThanOrEqual(0);
+      
+      // Now successful login - reward 5 tokens
+      bucket.reward(5);
+      expect(bucket.getAvailableTokens()).toBeGreaterThanOrEqual(5);
+      
+      // User can now make requests
+      expect(bucket.allowRequest()).toBe(true);
+    }, 10000);
+
+    it('should handle CAPTCHA verification scenario', () => {
+      const bucket = new TokenBucket(50, 5);
+      
+      // Suspicious activity - multiple penalties
+      bucket.penalty(10);
+      bucket.penalty(10);
+      bucket.penalty(10);
+      
+      // User completes CAPTCHA - reward tokens
+      const result = bucket.reward(15);
+      
+      expect(result.rewardApplied).toBe(15);
+      expect(bucket.getAvailableTokens()).toBeGreaterThan(0);
+      expect(bucket.allowRequest()).toBe(true);
+    });
+  });
 });
 
 /**

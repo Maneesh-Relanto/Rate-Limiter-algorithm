@@ -33,6 +33,7 @@ class TokenBucket {
     this.tokens = capacity; // Start with full bucket
     this.refillRate = refillRate;
     this.lastRefill = Date.now();
+    this.blockUntil = null; // Block timestamp (null = not blocked)
   }
 
   /**
@@ -44,6 +45,11 @@ class TokenBucket {
   allowRequest(tokensRequired = 1) {
     if (!Number.isFinite(tokensRequired) || tokensRequired <= 0) {
       throw new Error('Tokens required must be a positive number');
+    }
+
+    // Check if blocked
+    if (this.isBlocked()) {
+      return false;
     }
 
     this._refill();
@@ -98,11 +104,176 @@ class TokenBucket {
   }
 
   /**
+   * Applies a penalty by removing tokens from the bucket
+   * Useful for punishing bad behavior (failed login attempts, invalid requests)
+   * 
+   * @param {number} [points=1] - Number of tokens to remove as penalty
+   * @returns {Object} Result with remainingTokens and penaltyApplied
+   * @throws {Error} If points is invalid
+   * 
+   * @example
+   * // Failed login attempt - remove 5 tokens
+   * limiter.penalty(5);
+   * 
+   * // Multiple failed attempts can reduce tokens below zero
+   * limiter.penalty(10); // Now user must wait longer for tokens to refill
+   */
+  penalty(points = 1) {
+    if (!Number.isFinite(points) || points <= 0) {
+      throw new Error('Penalty points must be a positive number');
+    }
+
+    this._refill();
+    
+    // Allow tokens to go below zero (accumulating debt)
+    const beforePenalty = this.tokens;
+    this.tokens -= points;
+    
+    return {
+      penaltyApplied: points,
+      remainingTokens: Math.floor(this.tokens),
+      beforePenalty: Math.floor(beforePenalty)
+    };
+  }
+
+  /**
+   * Applies a reward by adding tokens to the bucket
+   * Useful for rewarding good behavior (successful captcha, verification)
+   * 
+   * @param {number} [points=1] - Number of tokens to add as reward
+   * @returns {Object} Result with remainingTokens and rewardApplied
+   * @throws {Error} If points is invalid
+   * 
+   * @example
+   * // User completed captcha successfully - reward 2 tokens
+   * limiter.reward(2);
+   * 
+   * // Rewards respect capacity - cannot exceed max tokens
+   * limiter.reward(1000); // Only adds up to capacity
+   */
+  reward(points = 1) {
+    if (!Number.isFinite(points) || points <= 0) {
+      throw new Error('Reward points must be a positive number');
+    }
+
+    this._refill();
+    
+    const beforeReward = this.tokens;
+    // Respect capacity - cannot exceed maximum
+    this.tokens = Math.min(this.capacity, this.tokens + points);
+    const actualReward = this.tokens - beforeReward;
+    
+    return {
+      rewardApplied: Math.floor(actualReward),
+      remainingTokens: Math.floor(this.tokens),
+      beforeReward: Math.floor(beforeReward),
+      cappedAtCapacity: actualReward < points
+    };
+  }
+
+  /**
    * Resets the bucket to full capacity
    */
   reset() {
     this.tokens = this.capacity;
     this.lastRefill = Date.now();
+  }
+
+  /**
+   * Blocks the bucket for a specified duration
+   * During the block period, all requests will be rejected regardless of token availability
+   * 
+   * @param {number} durationMs - Duration to block in milliseconds
+   * @returns {Object} Result with blockUntil timestamp and duration
+   * @throws {Error} If duration is invalid
+   * 
+   * @example
+   * // Block for 5 minutes after 3 failed login attempts
+   * if (failedAttempts >= 3) {
+   *   limiter.block(5 * 60 * 1000);
+   * }
+   * 
+   * // Temporary IP ban for 1 hour
+   * limiter.block(60 * 60 * 1000);
+   */
+  block(durationMs) {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      throw new Error('Block duration must be a positive number');
+    }
+
+    this.blockUntil = Date.now() + durationMs;
+    
+    return {
+      blocked: true,
+      blockUntil: this.blockUntil,
+      blockDuration: durationMs,
+      unblockAt: new Date(this.blockUntil).toISOString()
+    };
+  }
+
+  /**
+   * Checks if the bucket is currently blocked
+   * 
+   * @returns {boolean} True if blocked, false otherwise
+   * 
+   * @example
+   * if (limiter.isBlocked()) {
+   *   const timeLeft = limiter.getBlockTimeRemaining();
+   *   return res.status(403).json({ error: 'Blocked', retryAfter: timeLeft });
+   * }
+   */
+  isBlocked() {
+    if (this.blockUntil === null) {
+      return false;
+    }
+
+    const now = Date.now();
+    
+    // Check if block has expired
+    if (now >= this.blockUntil) {
+      this.blockUntil = null; // Auto-unblock
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Gets the remaining time in milliseconds until unblock
+   * 
+   * @returns {number} Milliseconds until unblock (0 if not blocked)
+   * 
+   * @example
+   * const msRemaining = limiter.getBlockTimeRemaining();
+   * const secondsRemaining = Math.ceil(msRemaining / 1000);
+   * console.log(`Blocked for ${secondsRemaining} more seconds`);
+   */
+  getBlockTimeRemaining() {
+    if (!this.isBlocked()) {
+      return 0;
+    }
+
+    return this.blockUntil - Date.now();
+  }
+
+  /**
+   * Manually unblocks the bucket
+   * Useful for admin operations or resolving false positives
+   * 
+   * @returns {Object} Result indicating unblock status
+   * 
+   * @example
+   * // Admin unblocks a user after verification
+   * limiter.unblock();
+   */
+  unblock() {
+    const wasBlocked = this.blockUntil !== null;
+    this.blockUntil = null;
+    
+    return {
+      unblocked: wasBlocked,
+      message: wasBlocked ? 'Block removed' : 'Was not blocked'
+    };
   }
 
   /**
@@ -140,6 +311,7 @@ class TokenBucket {
       tokens: this.tokens,
       refillRate: this.refillRate,
       lastRefill: this.lastRefill,
+      blockUntil: this.blockUntil,
       timestamp: Date.now(),
       metadata: {
         serializedAt: new Date().toISOString(),
@@ -200,6 +372,14 @@ class TokenBucket {
     // Restore state
     instance.tokens = json.tokens;
     instance.lastRefill = json.lastRefill;
+    
+    // Restore block state if present
+    if (json.blockUntil !== undefined && json.blockUntil !== null) {
+      if (!Number.isFinite(json.blockUntil) || json.blockUntil < 0) {
+        throw new Error('Invalid blockUntil: must be a non-negative timestamp or null');
+      }
+      instance.blockUntil = json.blockUntil;
+    }
 
     return instance;
   }

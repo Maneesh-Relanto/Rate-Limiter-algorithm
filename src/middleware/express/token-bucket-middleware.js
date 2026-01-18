@@ -98,6 +98,9 @@ function tokenBucketMiddleware(options = {}) {
         key: key
       };
 
+      // Attach limiter instance for penalty/reward operations
+      req.rateLimiter = limiter;
+
       // Add rate limit headers
       if (config.headers.standard) {
         res.setHeader('RateLimit-Limit', config.capacity);
@@ -251,11 +254,87 @@ function setRequestCost(cost) {
   };
 }
 
+/**
+ * Apply penalty to a user's rate limit bucket
+ * Removes tokens from the bucket, useful for punishing bad behavior
+ * 
+ * @param {Object} options - Configuration options
+ * @param {Function} options.keyGenerator - Function to generate rate limit key from request
+ * @param {number|Function} options.points - Number of tokens to remove (default: 1)
+ * @returns {Function} Express middleware that applies penalty and continues
+ */
+function applyPenalty(options = {}) {
+  const keyGenerator = options.keyGenerator || ((req) => req.ip || 'global');
+  const getPoints = typeof options.points === 'function' ? options.points : () => options.points || 1;
+
+  return function(req, res, next) {
+    try {
+      const key = keyGenerator(req);
+      
+      // Get the limiter from the parent middleware's Map
+      // This assumes penalty is used after rate limit middleware
+      if (req.rateLimiter) {
+        const points = getPoints(req);
+        const result = req.rateLimiter.penalty(points);
+        
+        // Attach penalty info to request
+        req.penaltyApplied = {
+          points,
+          remainingTokens: result.remainingTokens,
+          beforePenalty: result.beforePenalty
+        };
+      }
+    } catch (error) {
+      console.error('Error applying penalty:', error);
+    }
+    next();
+  };
+}
+
+/**
+ * Apply reward to a user's rate limit bucket
+ * Adds tokens to the bucket, useful for rewarding good behavior
+ * 
+ * @param {Object} options - Configuration options
+ * @param {Function} options.keyGenerator - Function to generate rate limit key from request
+ * @param {number|Function} options.points - Number of tokens to add (default: 1)
+ * @returns {Function} Express middleware that applies reward and continues
+ */
+function applyReward(options = {}) {
+  const keyGenerator = options.keyGenerator || ((req) => req.ip || 'global');
+  const getPoints = typeof options.points === 'function' ? options.points : () => options.points || 1;
+
+  return function(req, res, next) {
+    try {
+      const key = keyGenerator(req);
+      
+      // Get the limiter from the parent middleware's Map
+      if (req.rateLimiter) {
+        const points = getPoints(req);
+        const result = req.rateLimiter.reward(points);
+        
+        // Attach reward info to request
+        req.rewardApplied = {
+          points,
+          remainingTokens: result.remainingTokens,
+          beforeReward: result.beforeReward,
+          cappedAtCapacity: result.cappedAtCapacity
+        };
+      }
+    } catch (error) {
+      console.error('Error applying reward:', error);
+    }
+    next();
+  };
+}
+
 module.exports = {
   tokenBucketMiddleware,
   perUserRateLimit,
   perIpRateLimit,
   perEndpointRateLimit,
   globalRateLimit,
-  setRequestCost
+  setRequestCost,
+  applyPenalty,
+  applyReward
 };

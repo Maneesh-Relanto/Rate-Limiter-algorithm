@@ -213,6 +213,197 @@ class RedisTokenBucket {
   }
 
   /**
+   * Applies a penalty by removing tokens from the bucket
+   * Useful for punishing bad behavior (failed login attempts, invalid requests)
+   * 
+   * @param {number} [points=1] - Number of tokens to remove as penalty
+   * @returns {Promise<Object>} Result with remainingTokens and penaltyApplied
+   * @throws {Error} If points is invalid
+   * 
+   * @example
+   * // Failed login attempt - remove 5 tokens
+   * await limiter.penalty(5);
+   * 
+   * // Multiple failed attempts can reduce tokens below zero
+   * await limiter.penalty(10); // Now user must wait longer for tokens to refill
+   */
+  async penalty(points = 1) {
+    if (!Number.isFinite(points) || points <= 0) {
+      throw new Error('Penalty points must be a positive number');
+    }
+
+    const luaPenaltyScript = `
+      local key = KEYS[1]
+      local capacity = tonumber(ARGV[1])
+      local refillRate = tonumber(ARGV[2])
+      local penaltyPoints = tonumber(ARGV[3])
+      local now = tonumber(ARGV[4])
+      local ttl = tonumber(ARGV[5])
+      
+      -- Get current state
+      local state = redis.call('HMGET', key, 'tokens', 'lastRefill')
+      local tokens = tonumber(state[1])
+      local lastRefill = tonumber(state[2])
+      
+      -- Initialize if not exists
+      if not tokens then
+        tokens = capacity
+        lastRefill = now
+      end
+      
+      -- Calculate token refill
+      local timePassed = (now - lastRefill) / 1000
+      local tokensToAdd = timePassed * refillRate
+      tokens = math.min(capacity, tokens + tokensToAdd)
+      
+      -- Store state before penalty
+      local beforePenalty = tokens
+      
+      -- Apply penalty (allow tokens to go below zero)
+      tokens = tokens - penaltyPoints
+      
+      -- Update state
+      redis.call('HMSET', key, 'tokens', tokens, 'lastRefill', now)
+      
+      -- Set TTL
+      if ttl > 0 then
+        redis.call('EXPIRE', key, ttl)
+      end
+      
+      -- Return: penaltyApplied, remainingTokens, beforePenalty
+      return {penaltyPoints, math.floor(tokens), math.floor(beforePenalty)}
+    `;
+
+    try {
+      const now = Date.now();
+      const args = [this.capacity, this.refillRate, points, now, this.ttl];
+
+      let result;
+      if (typeof this.redis.eval === 'function') {
+        result = await this.redis.eval(luaPenaltyScript, 1, this.key, ...args);
+      } else if (typeof this.redis.sendCommand === 'function') {
+        result = await this.redis.sendCommand([
+          'EVAL',
+          luaPenaltyScript,
+          '1',
+          this.key,
+          ...args.map(String)
+        ]);
+      } else if (typeof this.redis.evalAsync === 'function') {
+        result = await this.redis.evalAsync(luaPenaltyScript, 1, this.key, ...args);
+      } else {
+        throw new Error('Unsupported Redis client: no eval method found');
+      }
+
+      return {
+        penaltyApplied: result[0],
+        remainingTokens: result[1],
+        beforePenalty: result[2]
+      };
+    } catch (error) {
+      console.error('Redis error in penalty:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Applies a reward by adding tokens to the bucket
+   * Useful for rewarding good behavior (successful captcha, verification)
+   * 
+   * @param {number} [points=1] - Number of tokens to add as reward
+   * @returns {Promise<Object>} Result with remainingTokens and rewardApplied
+   * @throws {Error} If points is invalid
+   * 
+   * @example
+   * // User completed captcha successfully - reward 2 tokens
+   * await limiter.reward(2);
+   * 
+   * // Rewards respect capacity - cannot exceed max tokens
+   * await limiter.reward(1000); // Only adds up to capacity
+   */
+  async reward(points = 1) {
+    if (!Number.isFinite(points) || points <= 0) {
+      throw new Error('Reward points must be a positive number');
+    }
+
+    const luaRewardScript = `
+      local key = KEYS[1]
+      local capacity = tonumber(ARGV[1])
+      local refillRate = tonumber(ARGV[2])
+      local rewardPoints = tonumber(ARGV[3])
+      local now = tonumber(ARGV[4])
+      local ttl = tonumber(ARGV[5])
+      
+      -- Get current state
+      local state = redis.call('HMGET', key, 'tokens', 'lastRefill')
+      local tokens = tonumber(state[1])
+      local lastRefill = tonumber(state[2])
+      
+      -- Initialize if not exists
+      if not tokens then
+        tokens = capacity
+        lastRefill = now
+      end
+      
+      -- Calculate token refill
+      local timePassed = (now - lastRefill) / 1000
+      local tokensToAdd = timePassed * refillRate
+      tokens = math.min(capacity, tokens + tokensToAdd)
+      
+      -- Store state before reward
+      local beforeReward = tokens
+      
+      -- Apply reward (respect capacity limit)
+      tokens = math.min(capacity, tokens + rewardPoints)
+      local actualReward = tokens - beforeReward
+      local cappedAtCapacity = actualReward < rewardPoints
+      
+      -- Update state
+      redis.call('HMSET', key, 'tokens', tokens, 'lastRefill', now)
+      
+      -- Set TTL
+      if ttl > 0 then
+        redis.call('EXPIRE', key, ttl)
+      end
+      
+      -- Return: actualReward, remainingTokens, beforeReward, cappedAtCapacity
+      return {math.floor(actualReward), math.floor(tokens), math.floor(beforeReward), cappedAtCapacity and 1 or 0}
+    `;
+
+    try {
+      const now = Date.now();
+      const args = [this.capacity, this.refillRate, points, now, this.ttl];
+
+      let result;
+      if (typeof this.redis.eval === 'function') {
+        result = await this.redis.eval(luaRewardScript, 1, this.key, ...args);
+      } else if (typeof this.redis.sendCommand === 'function') {
+        result = await this.redis.sendCommand([
+          'EVAL',
+          luaRewardScript,
+          '1',
+          this.key,
+          ...args.map(String)
+        ]);
+      } else if (typeof this.redis.evalAsync === 'function') {
+        result = await this.redis.evalAsync(luaRewardScript, 1, this.key, ...args);
+      } else {
+        throw new Error('Unsupported Redis client: no eval method found');
+      }
+
+      return {
+        rewardApplied: result[0],
+        remainingTokens: result[1],
+        beforeReward: result[2],
+        cappedAtCapacity: result[3] === 1
+      };
+    } catch (error) {
+      console.error('Redis error in reward:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Execute Lua script for atomic operations
    * 
    * @private
