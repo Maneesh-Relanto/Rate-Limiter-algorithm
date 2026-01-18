@@ -50,3 +50,7 @@ Desktop.ini
 # package-lock.json
 # yarn.lock
 # Pipfile.lock
+
+# Internal documentation - keep local only
+*.md
+!README.md
