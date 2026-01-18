@@ -167,7 +167,7 @@ class TokenBucket {
       rewardApplied: Math.floor(actualReward),
       remainingTokens: Math.floor(this.tokens),
       beforeReward: Math.floor(beforeReward),
-      cappedAtCapacity: actualReward < points
+      cappedAtCapacity: this.tokens >= this.capacity
     };
   }
 

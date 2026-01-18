@@ -22,6 +22,9 @@ class RedisTokenBucket {
    * @param {number} refillRate - Number of tokens added per second
    * @param {Object} options - Optional configuration
    * @param {number} options.ttl - Time-to-live for Redis keys in seconds (default: 3600)
+   * @param {boolean} options.enableInsurance - Enable in-memory fallback on Redis failure (default: false)
+   * @param {number} options.insuranceCapacity - Capacity for fallback limiter (default: capacity * 0.1)
+   * @param {number} options.insuranceRefillRate - Refill rate for fallback (default: refillRate * 0.1)
    * @throws {Error} If parameters are invalid
    */
   constructor(redisClient, key, capacity, refillRate, options = {}) {
@@ -43,6 +46,24 @@ class RedisTokenBucket {
     this.capacity = capacity;
     this.refillRate = refillRate;
     this.ttl = options.ttl || 3600; // Default 1 hour TTL
+
+    // Insurance limiter configuration
+    this.insuranceEnabled = options.enableInsurance || false;
+    this.insuranceLimiter = null;
+    this.insuranceActive = false;
+    this.redisFailureCount = 0;
+    this.lastRedisSuccess = Date.now();
+    
+    // Initialize insurance limiter if enabled
+    if (this.insuranceEnabled) {
+      const TokenBucket = require('./token-bucket');
+      const insuranceCapacity = options.insuranceCapacity || Math.max(1, Math.floor(capacity * 0.1));
+      const insuranceRefillRate = options.insuranceRefillRate || Math.max(0.1, refillRate * 0.1);
+      
+      this.insuranceLimiter = new TokenBucket(insuranceCapacity, insuranceRefillRate);
+      this.insuranceCapacity = insuranceCapacity;
+      this.insuranceRefillRate = insuranceRefillRate;
+    }
 
     // Define Lua script for atomic token bucket operations
     this.luaScript = `
@@ -110,9 +131,31 @@ class RedisTokenBucket {
       }
 
       const result = await this._executeScript(tokensRequired);
+      
+      // Redis success - reset failure tracking
+      if (this.insuranceEnabled) {
+        this.redisFailureCount = 0;
+        this.lastRedisSuccess = Date.now();
+        if (this.insuranceActive) {
+          this.insuranceActive = false;
+          // Reset insurance limiter on Redis recovery
+          this.insuranceLimiter.reset();
+        }
+      }
+      
       return result[0] === 1;
     } catch (error) {
       console.error('Redis error in allowRequest:', error.message);
+      
+      // Use insurance limiter if enabled
+      if (this.insuranceEnabled && this.insuranceLimiter) {
+        this.redisFailureCount++;
+        this.insuranceActive = true;
+        
+        const allowed = this.insuranceLimiter.allowRequest(tokensRequired);
+        return allowed;
+      }
+      
       // Fail open: allow request on Redis errors to prevent complete outage
       return true;
     }
@@ -604,6 +647,87 @@ class RedisTokenBucket {
       console.error('Redis health check failed:', error.message);
       return false;
     }
+  }
+
+  /**
+   * Check if insurance limiter is currently active
+   * 
+   * @returns {boolean} True if using fallback limiter
+   * 
+   * @example
+   * if (limiter.isInsuranceActive()) {
+   *   console.log('Redis is down, using fallback rate limits');
+   * }
+   */
+  isInsuranceActive() {
+    return this.insuranceEnabled && this.insuranceActive;
+  }
+
+  /**
+   * Get insurance limiter status and metrics
+   * 
+   * @returns {Object} Insurance status information
+   * 
+   * @example
+   * const status = limiter.getInsuranceStatus();
+   * console.log(`Fallback active: ${status.active}`);
+   * console.log(`Redis failures: ${status.failureCount}`);
+   */
+  getInsuranceStatus() {
+    if (!this.insuranceEnabled) {
+      return {
+        enabled: false,
+        active: false,
+        available: false
+      };
+    }
+
+    return {
+      enabled: true,
+      active: this.insuranceActive,
+      available: this.insuranceLimiter !== null,
+      failureCount: this.redisFailureCount,
+      lastSuccess: this.lastRedisSuccess,
+      lastSuccessAt: new Date(this.lastRedisSuccess).toISOString(),
+      insuranceCapacity: this.insuranceCapacity,
+      insuranceRefillRate: this.insuranceRefillRate,
+      insuranceTokens: this.insuranceLimiter ? this.insuranceLimiter.getAvailableTokens() : 0
+    };
+  }
+
+  /**
+   * Manually activate or deactivate insurance limiter
+   * Useful for testing or manual failover
+   * 
+   * @param {boolean} active - Whether to activate insurance
+   * @returns {Object} Result with activation status
+   * 
+   * @example
+   * // Force fallback for testing
+   * limiter.setInsuranceActive(true);
+   * 
+   * // Return to normal operation
+   * limiter.setInsuranceActive(false);
+   */
+  setInsuranceActive(active) {
+    if (!this.insuranceEnabled) {
+      throw new Error('Insurance limiter is not enabled');
+    }
+
+    const wasActive = this.insuranceActive;
+    this.insuranceActive = active;
+
+    if (!active && wasActive) {
+      // Reset insurance limiter when deactivating
+      this.insuranceLimiter.reset();
+      this.redisFailureCount = 0;
+    }
+
+    return {
+      success: true,
+      wasActive,
+      nowActive: this.insuranceActive
+    };
   }
 
   /**   * Blocks the bucket for a specified duration

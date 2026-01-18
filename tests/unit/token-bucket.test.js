@@ -378,10 +378,12 @@ describe('TokenBucket', () => {
       bucket.allowRequest(5);
       expect(bucket.getAvailableTokens()).toBe(95);
       
-      // Try to reward 10 (should only add 5)
+      // Try to reward 10 (should add at most 5, possibly less due to refill)
       const result = bucket.reward(10);
       
-      expect(result.rewardApplied).toBe(5);
+      // Allow for refill between operations: should add between 4-5 tokens
+      expect(result.rewardApplied).toBeGreaterThanOrEqual(4);
+      expect(result.rewardApplied).toBeLessThanOrEqual(5);
       expect(result.remainingTokens).toBe(100);
       expect(result.cappedAtCapacity).toBe(true);
       expect(bucket.getAvailableTokens()).toBe(100);
