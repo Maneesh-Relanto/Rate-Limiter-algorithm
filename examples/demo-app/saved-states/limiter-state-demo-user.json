@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "capacity": 10,
+  "tokens": 10,
+  "refillRate": 1,
+  "lastRefill": 1768727646630,
+  "blockUntil": null,
+  "timestamp": 1768727646630,
+  "metadata": {
+    "serializedAt": "2026-01-18T09:14:06.630Z",
+    "className": "TokenBucket"
+  }
+}

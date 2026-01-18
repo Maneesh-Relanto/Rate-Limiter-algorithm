@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rate Limiter - Enhanced Interactive Demo</title>
+  <link rel="stylesheet" href="styles-enhanced.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1>🚦 Rate Limiter - Enhanced Interactive Demo</h1>
+        <p class="subtitle">Test ALL Features | 383 Tests | 89.4% Coverage | TypeScript Support</p>
+        
+        <!-- Feature Pills -->
+        <div class="feature-pills">
+          <span class="pill unique">🎯 Penalty & Reward</span>
+          <span class="pill unique">🎯 Block Duration</span>
+          <span class="pill unique">🎯 Event Emitters (10)</span>
+          <span class="pill unique">🎯 State Persistence</span>
+          <span class="pill">Cost-Based</span>
+          <span class="pill">TypeScript</span>
+        </div>
+        
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+          <div class="stat">
+            <span class="stat-value" id="total-requests">0</span>
+            <span class="stat-label">Total Requests</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value success" id="allowed-requests">0</span>
+            <span class="stat-label">Allowed</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value error" id="blocked-requests">0</span>
+            <span class="stat-label">Blocked</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value warning" id="penalties-applied">0</span>
+            <span class="stat-label">Penalties</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value success" id="rewards-applied">0</span>
+            <span class="stat-label">Rewards</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value error" id="blocks-applied">0</span>
+            <span class="stat-label">Blocks</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value info" id="events-emitted">0</span>
+            <span class="stat-label">Events</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value primary" id="success-rate">100%</span>
+            <span class="stat-label">Success Rate</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-layout">
+      <!-- Left Sidebar: Feature Categories -->
+      <aside class="sidebar">
+        <nav class="category-nav">
+          <button class="category-btn active" onclick="switchCategory('basic', this)">
+            📊 Basic Rate Limiting
+          </button>
+          <button class="category-btn" onclick="switchCategory('adaptive', this)">
+            🎯 Penalty & Reward
+          </button>
+          <button class="category-btn" onclick="switchCategory('blocking', this)">
+            🚫 Block Duration
+          </button>
+          <button class="category-btn" onclick="switchCategory('persistence', this)">
+            💾 State & Control
+          </button>
+          <button class="category-btn" onclick="switchCategory('events', this)">
+            📡 Event Monitoring
+          </button>
+        </nav>
+        
+        <div class="limiter-control">
+          <h3>Limiter Control</h3>
+          <div class="form-group">
+            <label>Key:</label>
+            <input type="text" id="limiter-key" value="demo-user" />
+          </div>
+          <div class="state-info" id="limiter-state">
+            <div class="state-item">
+              <span>Tokens:</span>
+              <span id="state-tokens">-</span>
+            </div>
+            <div class="state-item">
+              <span>Capacity:</span>
+              <span id="state-capacity">-</span>
+            </div>
+            <div class="state-item">
+              <span>Blocked:</span>
+              <span id="state-blocked">No</span>
+            </div>
+          </div>
+          <button class="btn btn-small" onclick="refreshLimiterState()">🔄 Refresh State</button>
+        </div>
+      </aside>
+
+      <!-- Center: Feature Demo Panels -->
+      <main class="main-content">
+        <!-- Basic Rate Limiting -->
+        <section id="basic-category" class="category-panel active">
+          <h2>📊 Basic Rate Limiting</h2>
+          
+          <div class="test-cards">
+            <div class="test-card">
+              <h3>Per-IP Rate Limiting</h3>
+              <p>10 requests per minute per IP</p>
+              <button class="btn" onclick="testEndpoint('GET', '/api/basic')">Test Endpoint</button>
+            </div>
+            
+            <div class="test-card">
+              <h3>Strict Rate Limiting</h3>
+              <p>3 requests only, slow refill (1/min)</p>
+              <button class="btn" onclick="testEndpoint('GET', '/api/strict')">Test Endpoint</button>
+            </div>
+            
+            <div class="test-card">
+              <h3>Cost-Based (Light)</h3>
+              <p>1 token per request</p>
+              <button class="btn" onclick="testEndpoint('GET', '/api/cost-light')">Test Light (1 token)</button>
+            </div>
+            
+            <div class="test-card">
+              <h3>Cost-Based (Heavy)</h3>
+              <p>5 tokens per request</p>
+              <button class="btn" onclick="testEndpoint('GET', '/api/cost-heavy')">Test Heavy (5 tokens)</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Penalty & Reward System -->
+        <section id="adaptive-category" class="category-panel">
+          <h2>🎯 Penalty & Reward System (UNIQUE FEATURE)</h2>
+          
+          <div class="test-cards">
+            <div class="test-card unique">
+              <h3>Apply Penalty</h3>
+              <p>Remove tokens as punishment for bad behavior</p>
+              <div class="form-group">
+                <label>Amount:</label>
+                <input type="number" id="penalty-amount" value="5" min="1" />
+              </div>
+              <button class="btn" onclick="applyPenalty()">❌ Apply Penalty</button>
+            </div>
+            
+            <div class="test-card unique">
+              <h3>Apply Reward</h3>
+              <p>Add bonus tokens for good behavior</p>
+              <div class="form-group">
+                <label>Amount:</label>
+                <input type="number" id="reward-amount" value="5" min="1" />
+              </div>
+              <button class="btn" onclick="applyReward()">✨ Apply Reward</button>
+            </div>
+            
+            <div class="test-card unique full-width">
+              <h3>Adaptive Behavior (Spam Detection)</h3>
+              <p>System automatically applies penalties for spam or rewards for quality content</p>
+              <div class="form-group">
+                <label>Message:</label>
+                <textarea id="adaptive-message" rows="3" placeholder="Type a message..."></textarea>
+              </div>
+              <div class="button-group">
+                <button class="btn" onclick="testAdaptive('Normal message')">Send Normal</button>
+                <button class="btn" onclick="testAdaptive('Hi')">Send Short (Penalty)</button>
+                <button class="btn" onclick="testAdaptive('BUY NOW SPAM CLICK HERE')">Send Spam (Penalty)</button>
+                <button class="btn" onclick="testAdaptive('This is a high quality message with detailed content that provides value')">Send Quality (Reward)</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Block Duration -->
+        <section id="blocking-category" class="category-panel">
+          <h2>🚫 Block Duration (UNIQUE FEATURE)</h2>
+          
+          <div class="test-cards">
+            <div class="test-card unique">
+              <h3>Block User</h3>
+              <p>Temporarily ban user for specified duration</p>
+              <div class="form-group">
+                <label>Duration (seconds):</label>
+                <input type="number" id="block-duration" value="10" min="1" />
+              </div>
+              <button class="btn" onclick="applyBlock()">🚫 Block User</button>
+            </div>
+            
+            <div class="test-card unique">
+              <h3>Unblock User</h3>
+              <p>Manually remove block before expiry</p>
+              <button class="btn" onclick="removeBlock()">✅ Unblock User</button>
+            </div>
+            
+            <div class="test-card unique">
+              <h3>Check Block Status</h3>
+              <p>View current block state</p>
+              <button class="btn" onclick="checkBlockStatus()">🔍 Check Status</button>
+            </div>
+            
+            <div class="test-card unique full-width">
+              <h3>Failed Login Protection</h3>
+              <p>Simulates login with auto-block after too many failed attempts</p>
+              <div class="form-group">
+                <label>Username:</label>
+                <input type="text" id="login-username" value="testuser" />
+              </div>
+              <div class="form-group">
+                <label>Password:</label>
+                <input type="password" id="login-password" value="" />
+              </div>
+              <p class="hint">💡 Correct password: "correct123" | Try failing 5 times to trigger auto-block</p>
+              <button class="btn" onclick="testLogin()">🔐 Attempt Login</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- State Persistence & Manual Control -->
+        <section id="persistence-category" class="category-panel">
+          <h2>💾 State Persistence & Manual Control (UNIQUE FEATURES)</h2>
+          
+          <div class="test-cards">
+            <div class="test-card unique">
+              <h3>Save State</h3>
+              <p>Persist limiter state to file (survives crashes)</p>
+              <button class="btn" onclick="saveState()">💾 Save State</button>
+            </div>
+            
+            <div class="test-card unique">
+              <h3>Restore State</h3>
+              <p>Load previously saved state</p>
+              <button class="btn" onclick="restoreState()">📂 Restore State</button>
+            </div>
+            
+            <div class="test-card unique">
+              <h3>Get State</h3>
+              <p>Inspect current limiter state</p>
+              <button class="btn" onclick="getState()">🔍 Get State</button>
+            </div>
+            
+            <div class="test-card unique full-width">
+              <h3>Manual Token Control</h3>
+              <p>Directly manipulate tokens</p>
+              <div class="form-group">
+                <label>Action:</label>
+                <select id="manual-action">
+                  <option value="consume">Consume Tokens</option>
+                  <option value="add">Add Tokens (Reward)</option>
+                  <option value="remove">Remove Tokens (Penalty)</option>
+                  <option value="reset">Reset Bucket</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Amount:</label>
+                <input type="number" id="manual-amount" value="1" min="1" />
+              </div>
+              <button class="btn" onclick="manualControl()">⚙️ Execute</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Event Monitoring -->
+        <section id="events-category" class="category-panel">
+          <h2>📡 Event Monitoring (UNIQUE FEATURE - 10 Event Types)</h2>
+          
+          <div class="events-panel">
+            <div class="events-header">
+              <h3>Live Event Stream</h3>
+              <div class="button-group">
+                <button class="btn btn-small" onclick="startEventStream()" id="start-stream">▶️ Start Stream</button>
+                <button class="btn btn-small" onclick="stopEventStream()" id="stop-stream" disabled>⏸️ Stop Stream</button>
+                <button class="btn btn-small" onclick="clearEventsDisplay()">🗑️ Clear</button>
+              </div>
+            </div>
+            
+            <div class="event-types">
+              <h4>Event Types (10 total):</h4>
+              <div class="event-type-pills">
+                <span class="event-pill" data-type="allowed">allowed</span>
+                <span class="event-pill" data-type="rateLimitExceeded">rateLimitExceeded</span>
+                <span class="event-pill" data-type="penalty">penalty</span>
+                <span class="event-pill" data-type="reward">reward</span>
+                <span class="event-pill" data-type="blocked">blocked</span>
+                <span class="event-pill" data-type="unblocked">unblocked</span>
+                <span class="event-pill" data-type="reset">reset</span>
+                <span class="event-pill" data-type="redisError">redisError</span>
+                <span class="event-pill" data-type="insuranceActivated">insuranceActivated</span>
+                <span class="event-pill" data-type="insuranceDeactivated">insuranceDeactivated</span>
+              </div>
+            </div>
+            
+            <div class="events-list" id="events-list-display">
+              <p class="placeholder">Click "Start Stream" to see real-time events</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Right Sidebar: Response & Results -->
+      <aside class="response-sidebar">
+        <div class="response-panel">
+          <div class="response-header">
+            <h3>Response</h3>
+            <span class="response-status" id="response-status">Ready</span>
+          </div>
+          
+          <!-- Rate Limit Info Cards -->
+          <div class="rate-limit-cards">
+            <div class="rate-card">
+              <span class="rate-label">Limit</span>
+              <span class="rate-value" id="limit-value">-</span>
+            </div>
+            <div class="rate-card">
+              <span class="rate-label">Remaining</span>
+              <span class="rate-value" id="remaining-value">-</span>
+            </div>
+            <div class="rate-card">
+              <span class="rate-label">Used</span>
+              <span class="rate-value" id="used-value">-</span>
+            </div>
+            <div class="rate-card">
+              <span class="rate-label">Reset In</span>
+              <span class="rate-value" id="reset-value">-</span>
+            </div>
+          </div>
+          
+          <!-- Response Body -->
+          <div class="response-body-container">
+            <h4>Response Body</h4>
+            <pre class="response-body" id="response-body">No response yet. Try testing an endpoint!</pre>
+          </div>
+          
+          <!-- Feature Indicator -->
+          <div class="feature-indicator" id="feature-indicator">
+            <h4>Feature Demonstrated:</h4>
+            <p id="feature-text">-</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Quick Actions Bar -->
+    <footer class="quick-actions">
+      <div class="action-group">
+        <button class="btn btn-primary" onclick="runLoadTest()">
+          <span class="btn-icon">🚀</span>
+          <span class="btn-text">Load Test</span>
+          <span class="btn-subtitle">30 requests / 3s</span>
+        </button>
+        <button class="btn btn-secondary" onclick="testAllEndpoints()">
+          <span class="btn-icon">🔄</span>
+          <span class="btn-text">Test All</span>
+          <span class="btn-subtitle">Sequential test</span>
+        </button>
+        <button class="btn btn-success" onclick="demonstrateUniqueFeatures()">
+          <span class="btn-icon">🎯</span>
+          <span class="btn-text">Demo Features</span>
+          <span class="btn-subtitle">Show all unique</span>
+        </button>
+        <button class="btn btn-danger" onclick="resetMetrics()">
+          <span class="btn-icon">🗑️</span>
+          <span class="btn-text">Reset All</span>
+          <span class="btn-subtitle">Clear data</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Custom Modal -->
+  <div id="custom-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-icon" id="modal-icon">✅</span>
+        <h3 class="modal-title" id="modal-title">Success</h3>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer">
+        <button class="modal-btn modal-btn-primary" onclick="closeModal()">Got it! 👍</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app-enhanced.js"></script>
+</body>
+</html>
