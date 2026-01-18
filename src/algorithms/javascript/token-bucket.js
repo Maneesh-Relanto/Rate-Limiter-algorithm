@@ -271,8 +271,8 @@ class TokenBucket {
     this.blockUntil = null;
     
     return {
-      unblocked: wasBlocked,
-      message: wasBlocked ? 'Block removed' : 'Was not blocked'
+      unblocked: true,
+      wasBlocked: wasBlocked
     };
   }
 

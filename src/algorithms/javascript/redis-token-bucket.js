@@ -104,6 +104,11 @@ class RedisTokenBucket {
     }
 
     try {
+      // Check if blocked first
+      if (await this.isBlocked()) {
+        return false;
+      }
+
       const result = await this._executeScript(tokensRequired);
       return result[0] === 1;
     } catch (error) {
@@ -459,8 +464,146 @@ class RedisTokenBucket {
     }
   }
 
+  /**   * Blocks the bucket for a specified duration
+   * During the block period, all requests will be rejected regardless of token availability
+   * Uses Redis to store block state for distributed enforcement
+   * 
+   * @param {number} durationMs - Duration to block in milliseconds
+   * @returns {Promise<Object>} Result with blockUntil timestamp and duration
+   * @throws {Error} If duration is invalid
+   * 
+   * @example
+   * // Block for 5 minutes after 3 failed login attempts
+   * if (failedAttempts >= 3) {
+   *   await limiter.block(5 * 60 * 1000);
+   * }
+   * 
+   * // Temporary IP ban for 1 hour
+   * await limiter.block(60 * 60 * 1000);
+   */
+  async block(durationMs) {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) {
+      throw new Error('Block duration must be a positive number');
+    }
+
+    try {
+      const blockUntil = Date.now() + durationMs;
+      const blockKey = `${this.key}:block`;
+      
+      // Set block timestamp in Redis with TTL matching block duration
+      const ttlSeconds = Math.ceil(durationMs / 1000);
+      await this.redis.setex(blockKey, ttlSeconds, blockUntil.toString());
+      
+      return {
+        blocked: true,
+        blockUntil,
+        blockDuration: durationMs,
+        unblockAt: new Date(blockUntil).toISOString()
+      };
+    } catch (error) {
+      console.error('Redis error in block:', error.message);
+      throw error;
+    }
+  }
+
   /**
-   * Exports the bucket configuration to JSON
+   * Checks if the bucket is currently blocked
+   * 
+   * @returns {Promise<boolean>} True if blocked, false otherwise
+   * 
+   * @example
+   * if (await limiter.isBlocked()) {
+   *   const timeLeft = await limiter.getBlockTimeRemaining();
+   *   return res.status(403).json({ error: 'Blocked', retryAfter: timeLeft });
+   * }
+   */
+  async isBlocked() {
+    try {
+      const blockKey = `${this.key}:block`;
+      const blockUntil = await this.redis.get(blockKey);
+      
+      if (!blockUntil) {
+        return false;
+      }
+      
+      const now = Date.now();
+      const blockTime = parseInt(blockUntil, 10);
+      
+      if (now >= blockTime) {
+        // Block has expired, clean up
+        await this.redis.del(blockKey);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Redis error in isBlocked:', error.message);
+      // Fail open on Redis errors
+      return false;
+    }
+  }
+
+  /**
+   * Gets the remaining block time in milliseconds
+   * 
+   * @returns {Promise<number>} Milliseconds until unblock, or 0 if not blocked
+   * 
+   * @example
+   * const msRemaining = await limiter.getBlockTimeRemaining();
+   * const secondsRemaining = Math.ceil(msRemaining / 1000);
+   * res.setHeader('Retry-After', secondsRemaining);
+   */
+  async getBlockTimeRemaining() {
+    try {
+      const blockKey = `${this.key}:block`;
+      const blockUntil = await this.redis.get(blockKey);
+      
+      if (!blockUntil) {
+        return 0;
+      }
+      
+      const now = Date.now();
+      const blockTime = parseInt(blockUntil, 10);
+      const remaining = Math.max(0, blockTime - now);
+      
+      if (remaining === 0) {
+        // Block has expired, clean up
+        await this.redis.del(blockKey);
+      }
+      
+      return remaining;
+    } catch (error) {
+      console.error('Redis error in getBlockTimeRemaining:', error.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Manually unblocks the bucket before the block duration expires
+   * Useful for admin actions or when block should be lifted early
+   * 
+   * @returns {Promise<Object>} Result indicating unblock status
+   * 
+   * @example
+   * // Admin manually unblocks a user
+   * await limiter.unblock();
+   */
+  async unblock() {
+    try {
+      const blockKey = `${this.key}:block`;
+      const deleted = await this.redis.del(blockKey);
+      
+      return {
+        unblocked: true,
+        wasBlocked: deleted > 0
+      };
+    } catch (error) {
+      console.error('Redis error in unblock:', error.message);
+      throw error;
+    }
+  }
+
+  /**   * Exports the bucket configuration to JSON
    * Note: For Redis buckets, the actual state is stored in Redis.
    * This method exports the configuration needed to reconnect to the same bucket.
    * 
