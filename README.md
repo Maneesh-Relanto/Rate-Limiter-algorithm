@@ -215,8 +215,8 @@ The demo app comprehensively tests and validates:
 - **[Setup Guide](docs/guides/SETUP.md)** - Installation instructions
 - **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
 - **[Best Practices](docs/BEST_PRACTICES.md)** - Production deployment guide
-- **[Redis Distributed Guide](REDIS_DISTRIBUTED.md)** - Multi-server deployments with Redis
-- **[Express Middleware Guide](EXPRESS_MIDDLEWARE_GUIDE.md)** - Express.js integration
+- **[Redis Distributed Guide](docs/guides/REDIS_DISTRIBUTED.md)** - Multi-server deployments with Redis
+- **[Express Middleware Guide](docs/EXPRESS_MIDDLEWARE_GUIDE.md)** - Express.js integration
 - **[State Persistence Guide](docs/STATE_PERSISTENCE.md)** - Save/restore limiter state for crash recovery
 
 ## 🚀 Framework Integration
@@ -248,7 +248,7 @@ app.get('/api/data', (req, res) => {
 app.listen(3000);
 ```
 
-**[See full Express guide →](EXPRESS_MIDDLEWARE_GUIDE.md)**
+**[See full Express guide →](docs/EXPRESS_MIDDLEWARE_GUIDE.md)**
 
 **🎯 [Try the Interactive Demo App →](examples/demo-app/)** to see all these features in action!
 
@@ -270,7 +270,7 @@ app.use(tokenBucketMiddleware({
 }));
 ```
 
-**[See full Redis guide →](REDIS_DISTRIBUTED.md)**
+**[See full Redis guide →](docs/guides/REDIS_DISTRIBUTED.md)**
 
 ## 🤝 Contributing
 
