@@ -635,4 +635,402 @@ describe('Redis Token Bucket Express Middleware', () => {
       brokenRedis.disconnect();
     });
   });
+
+  describe('Redis Connection Failure Tests', () => {
+    it('should fail open when Redis eval fails during allowRequest', async () => {
+      const brokenRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: brokenRedis,
+        capacity: 1,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Force Redis eval to fail
+      brokenRedis.eval = jest.fn().mockRejectedValue(new Error('EVAL error'));
+
+      // Should allow request despite Redis failure
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      brokenRedis.disconnect();
+    });
+
+    it('should fail open when Redis getAvailableTokens fails', async () => {
+      const brokenRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: brokenRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // First request works
+      await request(app).get('/test');
+
+      // Break getAvailableTokens by removing hmget
+      brokenRedis.hmget = jest.fn().mockRejectedValue(new Error('HMGET error'));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      brokenRedis.disconnect();
+    });
+
+    it('should fail open when getTimeUntilNextToken fails', async () => {
+      const brokenRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: brokenRedis,
+        capacity: 1,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Use up capacity
+      await request(app).get('/test');
+
+      // Break hmget for getTimeUntilNextToken (should still return 429 but maybe without retry-after)
+      brokenRedis.hmget = jest.fn().mockRejectedValue(new Error('HMGET error'));
+
+      // Should return 429 since capacity is exceeded, error is in retry-after calculation
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(429);
+      // Retry-after might be undefined or 0 due to error
+      expect(res.headers['retry-after']).toBeDefined();
+
+      brokenRedis.disconnect();
+    });
+
+    it('should handle Redis disconnection during request', async () => {
+      const disconnectingRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: disconnectingRedis,
+        capacity: 5,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // First request succeeds
+      const res1 = await request(app).get('/test');
+      expect(res1.status).toBe(200);
+
+      // Simulate disconnection
+      disconnectingRedis.eval = jest.fn().mockRejectedValue(new Error('Connection closed'));
+
+      // Should fail open
+      const res2 = await request(app).get('/test');
+      expect(res2.status).toBe(200);
+
+      disconnectingRedis.disconnect();
+    });
+
+    it('should handle Redis timeout errors', async () => {
+      const timeoutRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: timeoutRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate timeout
+      timeoutRedis.eval = jest.fn().mockRejectedValue(new Error('Command timed out'));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      timeoutRedis.disconnect();
+    });
+
+    it('should handle Redis network errors', async () => {
+      const networkErrorRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: networkErrorRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate network error
+      networkErrorRedis.eval = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      networkErrorRedis.disconnect();
+    });
+
+    it('should handle Redis READONLY errors', async () => {
+      const readonlyRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: readonlyRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate READONLY error (replica)
+      readonlyRedis.eval = jest.fn().mockRejectedValue(new Error('READONLY You can\'t write against a read only replica'));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      readonlyRedis.disconnect();
+    });
+
+    it('should handle Redis script execution errors', async () => {
+      const scriptErrorRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: scriptErrorRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate Lua script error
+      scriptErrorRedis.eval = jest.fn().mockRejectedValue(new Error('ERR Error running script'));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      scriptErrorRedis.disconnect();
+    });
+
+    it('should handle malformed Redis responses', async () => {
+      const malformedRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: malformedRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Return malformed data
+      malformedRedis.eval = jest.fn().mockResolvedValue(null);
+
+      // Should fail open on malformed response
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      malformedRedis.disconnect();
+    });
+
+    it('should handle Redis memory errors (OOM)', async () => {
+      const oomRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: oomRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate out of memory
+      oomRedis.eval = jest.fn().mockRejectedValue(new Error('OOM command not allowed when used memory > \'maxmemory\''));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      oomRedis.disconnect();
+    });
+
+    it('should handle concurrent Redis failures', async () => {
+      const concurrentFailRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: concurrentFailRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate failure
+      concurrentFailRedis.eval = jest.fn().mockRejectedValue(new Error('Connection lost'));
+
+      // Multiple concurrent requests should all fail open
+      const promises = Array(5).fill(null).map(() => request(app).get('/test'));
+      const results = await Promise.all(promises);
+
+      results.forEach(res => {
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+      });
+
+      concurrentFailRedis.disconnect();
+    });
+
+    it('should recover after Redis connection restored', async () => {
+      const recoveringRedis = new RedisMock();
+      let failCount = 0;
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: recoveringRedis,
+        capacity: 5,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // First request succeeds
+      const res1 = await request(app).get('/test');
+      expect(res1.status).toBe(200);
+
+      // Temporarily fail Redis
+      const originalEval = recoveringRedis.eval.bind(recoveringRedis);
+      recoveringRedis.eval = jest.fn((script, numKeys, ...args) => {
+        failCount++;
+        if (failCount <= 2) {
+          return Promise.reject(new Error('Temporary failure'));
+        }
+        return originalEval(script, numKeys, ...args);
+      });
+
+      // Second request fails open
+      const res2 = await request(app).get('/test');
+      expect(res2.status).toBe(200);
+
+      // Third request fails open
+      const res3 = await request(app).get('/test');
+      expect(res3.status).toBe(200);
+
+      // Fourth request should succeed (Redis recovered)
+      const res4 = await request(app).get('/test');
+      expect(res4.status).toBe(200);
+      expect(res4.headers['x-ratelimit-limit']).toBeDefined();
+
+      recoveringRedis.disconnect();
+    });
+
+    it('should handle keyGenerator errors gracefully', async () => {
+      app.use(redisTokenBucketMiddleware({
+        redis,
+        capacity: 10,
+        refillRate: 1,
+        keyGenerator: (req) => {
+          throw new Error('KeyGenerator error');
+        }
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Should fail open on keyGenerator error
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+    });
+
+    it('should handle errors in getLimiter creation', async () => {
+      const badRedis = {
+        eval: jest.fn().mockRejectedValue(new Error('Redis init error')),
+        disconnect: jest.fn()
+      };
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: badRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Should fail open
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      badRedis.disconnect();
+    });
+
+    it('should handle Redis cluster failover', async () => {
+      const clusterRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: clusterRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate cluster failover error
+      clusterRedis.eval = jest.fn().mockRejectedValue(new Error('CLUSTERDOWN Hash slot not served'));
+
+      // Should fail open during failover
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      clusterRedis.disconnect();
+    });
+
+    it('should handle Redis LOADING state', async () => {
+      const loadingRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: loadingRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate loading state
+      loadingRedis.eval = jest.fn().mockRejectedValue(new Error('LOADING Redis is loading the dataset in memory'));
+
+      // Should fail open while loading
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      loadingRedis.disconnect();
+    });
+
+    it('should handle very long Redis response times', async () => {
+      const slowRedis = new RedisMock();
+      
+      app.use(redisTokenBucketMiddleware({
+        redis: slowRedis,
+        capacity: 10,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Simulate slow response
+      const originalEval = slowRedis.eval.bind(slowRedis);
+      slowRedis.eval = jest.fn(async (...args) => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return originalEval(...args);
+      });
+
+      // Should still complete (not timeout in this test)
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+
+      slowRedis.disconnect();
+    });
+  });
 });

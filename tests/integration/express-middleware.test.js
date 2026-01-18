@@ -344,5 +344,582 @@ describe('Express Token Bucket Middleware', () => {
       expect(req.tokenCost).toBe(5);
       expect(next).toHaveBeenCalled();
     });
+
+    it('should set token cost from function', () => {
+      const req = { body: { size: 10 } };
+      const res = {};
+      const next = jest.fn();
+
+      const middleware = setRequestCost((req) => req.body.size * 2);
+      middleware(req, res, next);
+
+      expect(req.tokenCost).toBe(20);
+      expect(next).toHaveBeenCalled();
+    });
+  });
+
+  describe('Branch Coverage Tests', () => {
+    beforeEach(() => {
+      app = express();
+    });
+
+    it('should use skip function to bypass rate limiting', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1,
+        skip: (req) => req.path === '/health'
+      }));
+      
+      app.get('/health', (req, res) => res.json({ status: 'ok' }));
+      app.get('/api', (req, res) => res.json({ success: true }));
+
+      // Health endpoint should skip rate limiting
+      await request(app).get('/health');
+      await request(app).get('/health');
+      const res1 = await request(app).get('/health');
+      expect(res1.status).toBe(200);
+
+      // API endpoint should enforce rate limiting
+      await request(app).get('/api');
+      const res2 = await request(app).get('/api');
+      expect(res2.status).toBe(429);
+    });
+
+    it('should use custom handler for rate limit exceeded', async () => {
+      const customHandler = jest.fn((req, res) => {
+        res.status(503).json({ custom: 'error', service: 'unavailable' });
+      });
+
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1,
+        handler: customHandler
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      await request(app).get('/test');
+      const res = await request(app).get('/test');
+      
+      expect(res.status).toBe(503);
+      expect(res.body.custom).toBe('error');
+      expect(customHandler).toHaveBeenCalled();
+    });
+
+    it('should call onLimitReached callback', async () => {
+      const onLimitReached = jest.fn();
+
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1,
+        onLimitReached
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      await request(app).get('/test');
+      await request(app).get('/test');
+      
+      expect(onLimitReached).toHaveBeenCalled();
+    });
+
+    it('should use standard headers (draft spec)', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        headers: { standard: true, legacy: false }
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      const res = await request(app).get('/test');
+      
+      expect(res.headers['ratelimit-limit']).toBe('10');
+      expect(res.headers['ratelimit-remaining']).toBe('9');
+      expect(res.headers['ratelimit-reset']).toBeDefined();
+      expect(res.headers['x-ratelimit-limit']).toBeUndefined();
+    });
+
+    it('should use legacy headers only', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        headers: { standard: false, legacy: true }
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      const res = await request(app).get('/test');
+      
+      expect(res.headers['x-ratelimit-limit']).toBe('10');
+      expect(res.headers['x-ratelimit-remaining']).toBe('9');
+      expect(res.headers['x-ratelimit-reset']).toBeDefined();
+      expect(res.headers['ratelimit-limit']).toBeUndefined();
+    });
+
+    it('should disable all headers', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        headers: { standard: false, legacy: false }
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      const res = await request(app).get('/test');
+      
+      expect(res.headers['ratelimit-limit']).toBeUndefined();
+      expect(res.headers['x-ratelimit-limit']).toBeUndefined();
+    });
+
+    it('should use deprecated standardHeaders option', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        standardHeaders: true
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      const res = await request(app).get('/test');
+      
+      expect(res.headers['ratelimit-limit']).toBe('10');
+    });
+
+    it('should use deprecated legacyHeaders option', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        legacyHeaders: true
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      const res = await request(app).get('/test');
+      
+      expect(res.headers['x-ratelimit-limit']).toBe('10');
+    });
+
+    it('should fail open on error', async () => {
+      const badKeyGenerator = jest.fn(() => {
+        throw new Error('Key generator error');
+      });
+
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        keyGenerator: badKeyGenerator
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // Should allow request despite error
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+      expect(badKeyGenerator).toHaveBeenCalled();
+    });
+
+    it('should handle perUserRateLimit with fallbackToIp=false', async () => {
+      app.use(perUserRateLimit({
+        capacity: 2,
+        refillRate: 1,
+        getUserId: (req) => req.headers['x-user-id'],
+        fallbackToIp: false
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // No user ID should use 'anonymous' key
+      await request(app).get('/test');
+      await request(app).get('/test');
+      
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(429);
+    });
+
+    it('should handle perEndpointRateLimit with getUserId function', async () => {
+      app.use(perEndpointRateLimit({
+        capacity: 2,
+        refillRate: 1,
+        getUserId: (req) => req.headers['x-user-id']
+      }));
+      
+      app.get('/endpoint1', (req, res) => res.json({ endpoint: 1 }));
+
+      // User 1 can make 2 requests to endpoint1
+      await request(app).get('/endpoint1').set('X-User-Id', 'user1');
+      await request(app).get('/endpoint1').set('X-User-Id', 'user1');
+      
+      const res1 = await request(app).get('/endpoint1').set('X-User-Id', 'user1');
+      expect(res1.status).toBe(429);
+
+      // User 2 can still access endpoint1
+      const res2 = await request(app).get('/endpoint1').set('X-User-Id', 'user2');
+      expect(res2.status).toBe(200);
+    });
+
+    it('should handle perEndpointRateLimit without getUserId', async () => {
+      app.use(perEndpointRateLimit({
+        capacity: 2,
+        refillRate: 1
+      }));
+      
+      app.get('/endpoint1', (req, res) => res.json({ endpoint: 1 }));
+
+      // Should use IP address
+      await request(app).get('/endpoint1');
+      await request(app).get('/endpoint1');
+      
+      const res = await request(app).get('/endpoint1');
+      expect(res.status).toBe(429);
+    });
+
+    it('should use null/undefined options with perUserRateLimit', async () => {
+      app.use(perUserRateLimit({
+        getUserId: (req) => req.headers['x-user-id'],
+        fallbackToIp: false,
+        capacity: 2,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // User with valid ID
+      await request(app).get('/test').set('X-User-Id', 'user1');
+      await request(app).get('/test').set('X-User-Id', 'user1');
+      
+      const res1 = await request(app).get('/test').set('X-User-Id', 'user1');
+      expect(res1.status).toBe(429);
+
+      // Empty user ID should use 'anonymous'
+      const res2 = await request(app).get('/test');
+      expect(res2.status).toBe(200);
+    });
+
+    it('should handle perUserRateLimit with valid userId', async () => {
+      app.use(perUserRateLimit({
+        getUserId: (req) => req.headers['x-user-id'],
+        capacity: 2,
+        refillRate: 1
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      // First user
+      await request(app).get('/test').set('X-User-Id', 'validuser');
+      
+      const res = await request(app).get('/test').set('X-User-Id', 'validuser');
+      expect(res.status).toBe(200); // Still under limit
+    });
+
+    it('should use request.tokenCost over config.cost', async () => {
+      app.use('/heavy', setRequestCost(8)); // Set cost before middleware
+
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1,
+        cost: 5 // Default cost
+      }));
+      
+      app.get('/heavy', (req, res) => {
+        res.json({ remaining: req.rateLimit.remaining });
+      });
+
+      const res = await request(app).get('/heavy');
+      expect(res.body.remaining).toBe(2); // 10 - 8 = 2
+    });
+
+    it('should use skip function with custom logic', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1,
+        skip: (req) => req.path === '/health' || req.path === '/status'
+      }));
+      
+      app.get('/health', (req, res) => res.json({ status: 'ok' }));
+      app.get('/api', (req, res) => res.json({ success: true }));
+
+      // Health should skip
+      await request(app).get('/health');
+      await request(app).get('/health');
+      const res1 = await request(app).get('/health');
+      expect(res1.status).toBe(200);
+
+      // API should enforce
+      await request(app).get('/api');
+      const res2 = await request(app).get('/api');
+      expect(res2.status).toBe(429);
+    });
+
+    it('should use default keyGenerator when not provided', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 2,
+        refillRate: 1
+        // No keyGenerator provided
+      }));
+      
+      app.get('/test', (req, res) => res.json({ 
+        key: req.rateLimit.key 
+      }));
+
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+      // Should use IP address as key
+      expect(res.body.key).toMatch(/\d+\.\d+\.\d+\.\d+|::ffff:\d+\.\d+\.\d+\.\d+|global/);
+    });
+
+    it('should use default handler when not provided', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1
+        // No handler provided
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      await request(app).get('/test');
+      const res = await request(app).get('/test');
+      
+      // Should use default 429 response
+      expect(res.status).toBe(429);
+      expect(res.body.error).toBeDefined();
+    });
+
+    it('should use default onLimitReached when not provided', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 1,
+        refillRate: 1
+        // No onLimitReached provided
+      }));
+      
+      app.get('/test', (req, res) => res.json({ success: true }));
+
+      await request(app).get('/test');
+      const res = await request(app).get('/test');
+      
+      expect(res.status).toBe(429);
+      // Should not crash without callback
+    });
+
+    it('should use default cost when not specified', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+        // No cost specified
+      }));
+      
+      app.get('/test', (req, res) => {
+        res.json({ remaining: req.rateLimit.remaining });
+      });
+
+      const res = await request(app).get('/test');
+      expect(res.body.remaining).toBe(9); // Default cost is 1
+    });
+  });
+
+  describe('applyPenalty', () => {
+    const { applyPenalty } = require('../../src/middleware/express/token-bucket-middleware');
+
+    beforeEach(() => {
+      app = express();
+    });
+
+    it('should apply penalty to rate limiter', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      app.use('/bad', applyPenalty({ points: 5 }));
+      
+      app.get('/good', (req, res) => {
+        res.json({ remaining: req.rateLimit.remaining });
+      });
+
+      app.get('/bad', (req, res) => {
+        res.json({ 
+          penaltyApplied: req.penaltyApplied,
+          remaining: req.rateLimit.remaining
+        });
+      });
+
+      // Check initial state
+      const res1 = await request(app).get('/good');
+      expect(res1.body.remaining).toBe(9);
+
+      // Apply penalty
+      const res2 = await request(app).get('/bad');
+      expect(res2.body.penaltyApplied.points).toBe(5);
+
+      // Check reduced tokens
+      const res3 = await request(app).get('/good');
+      expect(res3.body.remaining).toBeLessThan(9);
+    });
+
+    it('should apply penalty using function', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      app.use('/dynamic', applyPenalty({ 
+        points: (req) => parseInt(req.query.penalty) || 1
+      }));
+      
+      app.get('/dynamic', (req, res) => {
+        res.json({ penaltyApplied: req.penaltyApplied });
+      });
+
+      const res = await request(app).get('/dynamic?penalty=7');
+      expect(res.body.penaltyApplied.points).toBe(7);
+    });
+
+    it('should apply penalty with custom keyGenerator', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      app.use('/penalty', applyPenalty({ 
+        points: 5,
+        keyGenerator: (req) => `user:${req.headers['x-user-id'] || 'anonymous'}`
+      }));
+      
+      app.get('/penalty', (req, res) => {
+        res.json({ penaltyApplied: req.penaltyApplied });
+      });
+
+      const res = await request(app).get('/penalty').set('X-User-Id', 'test');
+      expect(res.body.penaltyApplied.points).toBe(5);
+    });
+
+    it('should handle error in applyPenalty gracefully', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      // Mock penalty to throw error
+      app.use('/test', (req, res, next) => {
+        req.rateLimiter.penalty = jest.fn(() => {
+          throw new Error('Penalty error');
+        });
+        next();
+      });
+
+      app.use('/test', applyPenalty({ points: 5 }));
+      
+      app.get('/test', (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Should not crash despite error
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+    });
+  });
+
+  describe('applyReward', () => {
+    const { applyReward } = require('../../src/middleware/express/token-bucket-middleware');
+
+    beforeEach(() => {
+      app = express();
+    });
+
+    it('should apply reward to rate limiter', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      // Consume some tokens first
+      app.use('/consume', (req, res, next) => {
+        req.rateLimiter.penalty(5);
+        next();
+      });
+
+      app.use('/good', applyReward({ points: 3 }));
+      
+      app.get('/consume', (req, res) => {
+        res.json({ remaining: req.rateLimit.remaining });
+      });
+
+      app.get('/good', (req, res) => {
+        res.json({ 
+          rewardApplied: req.rewardApplied,
+          remaining: req.rateLimit.remaining
+        });
+      });
+
+      // Consume tokens
+      await request(app).get('/consume');
+
+      // Apply reward
+      const res = await request(app).get('/good');
+      expect(res.body.rewardApplied.points).toBe(3);
+      expect(res.body.rewardApplied.cappedAtCapacity).toBeDefined();
+    });
+
+    it('should apply reward using function', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      app.use('/dynamic', applyReward({ 
+        points: (req) => parseInt(req.query.reward) || 1
+      }));
+      
+      app.get('/dynamic', (req, res) => {
+        res.json({ rewardApplied: req.rewardApplied });
+      });
+
+      const res = await request(app).get('/dynamic?reward=4');
+      expect(res.body.rewardApplied.points).toBe(4);
+    });
+
+    it('should apply reward with custom keyGenerator', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      app.use('/reward', applyReward({ 
+        points: 3,
+        keyGenerator: (req) => `user:${req.headers['x-user-id'] || 'anonymous'}`
+      }));
+      
+      app.get('/reward', (req, res) => {
+        res.json({ rewardApplied: req.rewardApplied });
+      });
+
+      const res = await request(app).get('/reward').set('X-User-Id', 'test');
+      expect(res.body.rewardApplied.points).toBe(3);
+    });
+
+    it('should handle error in applyReward gracefully', async () => {
+      app.use(tokenBucketMiddleware({
+        capacity: 10,
+        refillRate: 1
+      }));
+
+      // Mock reward to throw error
+      app.use('/test', (req, res, next) => {
+        req.rateLimiter.reward = jest.fn(() => {
+          throw new Error('Reward error');
+        });
+        next();
+      });
+
+      app.use('/test', applyReward({ points: 5 }));
+      
+      app.get('/test', (req, res) => {
+        res.json({ success: true });
+      });
+
+      // Should not crash despite error
+      const res = await request(app).get('/test');
+      expect(res.status).toBe(200);
+    });
   });
 });
