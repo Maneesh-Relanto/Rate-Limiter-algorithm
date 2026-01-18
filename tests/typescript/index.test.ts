@@ -54,7 +54,7 @@ import {
   RateLimitConfig,
   EndpointConfig,
   loadConfig
-} from '../../index';
+} from '../../src/index';
 
 describe('Main Index TypeScript Definitions', () => {
   describe('TokenBucket Exports', () => {

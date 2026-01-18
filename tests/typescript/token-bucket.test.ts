@@ -9,11 +9,10 @@
  */
 
 import { EventEmitter } from 'events';
-import {
+
+import {`r`n  TokenBucket,`r`n  TokenBucketOptions,
   TokenBucket,
   TokenBucketOptions,
-  TokenBucketState,
-  AllowRequestResult,
   AllowedEventData,
   RateLimitExceededEventData,
   PenaltyEventData,
