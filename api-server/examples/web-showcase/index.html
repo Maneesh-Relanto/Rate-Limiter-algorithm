@@ -566,7 +566,7 @@ const apiUrl = 'http://localhost:8080';
 
 // Check rate limit
 async function checkRateLimit() {
-  const response = await fetch(`${apiUrl}/api/check`, {
+  const response = await fetch(`${apiUrl}/api/v1/limiter/check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -582,7 +582,7 @@ async function checkRateLimit() {
 
 // Apply penalty
 async function applyPenalty() {
-  const response = await fetch(`${apiUrl}/api/penalty`, {
+  const response = await fetch(`${apiUrl}/api/v1/limiter/penalty`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -617,7 +617,7 @@ API_URL = 'http://localhost:8080'
 # Check rate limit
 def check_rate_limit(key, capacity=10, refill_rate=2):
     response = requests.post(
-        f'{API_URL}/api/check',
+        f'{API_URL}/api/v1/limiter/check',
         json={
             'key': key,
             'capacity': capacity,
@@ -629,7 +629,7 @@ def check_rate_limit(key, capacity=10, refill_rate=2):
 # Apply penalty
 def apply_penalty(key, points=5):
     response = requests.post(
-        f'{API_URL}/api/penalty',
+        f'{API_URL}/api/v1/limiter/penalty',
         json={'key': key, 'points': points}
     )
     return response.json()
@@ -637,7 +637,7 @@ def apply_penalty(key, points=5):
 # Apply reward
 def apply_reward(key, points=3):
     response = requests.post(
-        f'{API_URL}/api/reward',
+        f'{API_URL}/api/v1/limiter/reward',
         json={'key': key, 'points': points}
     )
     return response.json()
@@ -645,7 +645,7 @@ def apply_reward(key, points=3):
 # Block user temporarily
 def block_user(key, duration=60):
     response = requests.post(
-        f'{API_URL}/api/block',
+        f'{API_URL}/api/v1/limiter/block',
         json={'key': key, 'duration': duration}
     )
     return response.json()
@@ -672,7 +672,7 @@ if __name__ == '__main__':
           <div class="code-block">
             <button class="copy-btn" onclick="copyCode('curl-code')">Copy</button>
             <pre id="curl-code"># Check rate limit
-curl -X POST http://localhost:8080/api/check \
+curl -X POST http://localhost:8080/api/v1/limiter/check \
   -H "Content-Type: application/json" \
   -d '{
     "key": "user-123",
@@ -681,7 +681,7 @@ curl -X POST http://localhost:8080/api/check \
   }'
 
 # Apply penalty (remove 5 tokens)
-curl -X POST http://localhost:8080/api/penalty \
+curl -X POST http://localhost:8080/api/v1/limiter/penalty \
   -H "Content-Type: application/json" \
   -d '{
     "key": "user-123",
@@ -689,7 +689,7 @@ curl -X POST http://localhost:8080/api/penalty \
   }'
 
 # Apply reward (add 3 tokens)
-curl -X POST http://localhost:8080/api/reward \
+curl -X POST http://localhost:8080/api/v1/limiter/reward \
   -H "Content-Type: application/json" \
   -d '{
     "key": "user-123",
@@ -697,7 +697,7 @@ curl -X POST http://localhost:8080/api/reward \
   }'
 
 # Block user for 60 seconds
-curl -X POST http://localhost:8080/api/block \
+curl -X POST http://localhost:8080/api/v1/limiter/block \
   -H "Content-Type: application/json" \
   -d '{
     "key": "user-123",
@@ -705,7 +705,7 @@ curl -X POST http://localhost:8080/api/block \
   }'
 
 # Check status
-curl -X GET http://localhost:8080/api/status/user-123
+curl -X GET http://localhost:8080/api/v1/limiter/status/user-123
 
 # Get server metrics
 curl -X GET http://localhost:8080/api/metrics
@@ -743,7 +743,7 @@ public class RateLimiterClient {
         body.addProperty("refillRate", refillRate);
 
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(API_URL + "/api/check"))
+            .uri(URI.create(API_URL + "/api/v1/limiter/check"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
             .build();
@@ -760,7 +760,7 @@ public class RateLimiterClient {
         body.addProperty("points", points);
 
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(API_URL + "/api/penalty"))
+            .uri(URI.create(API_URL + "/api/v1/limiter/penalty"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
             .build();
@@ -839,7 +839,7 @@ func checkRateLimit(key string, capacity, refillRate int) (*CheckResponse, error
     }
 
     resp, err := http.Post(
-        fmt.Sprintf("%s/api/check", apiURL),
+        fmt.Sprintf("%s/api/v1/limiter/check", apiURL),
         "application/json",
         bytes.NewBuffer(jsonData),
     )
@@ -871,7 +871,7 @@ func applyPenalty(key string, points int) (map[string]interface{}, error) {
 
     jsonData, _ := json.Marshal(reqBody)
     resp, err := http.Post(
-        fmt.Sprintf("%s/api/penalty", apiURL),
+        fmt.Sprintf("%s/api/v1/limiter/penalty", apiURL),
         "application/json",
         bytes.NewBuffer(jsonData),
     )
@@ -919,7 +919,7 @@ class RateLimiterClient {
             'refillRate' => $refillRate
         ];
 
-        return $this->post('/api/check', $data);
+        return $this->post('/api/v1/limiter/check', $data);
     }
 
     // Apply penalty
@@ -929,7 +929,7 @@ class RateLimiterClient {
             'points' => $points
         ];
 
-        return $this->post('/api/penalty', $data);
+        return $this->post('/api/v1/limiter/penalty', $data);
     }
 
     // Apply reward
@@ -939,7 +939,7 @@ class RateLimiterClient {
             'points' => $points
         ];
 
-        return $this->post('/api/reward', $data);
+        return $this->post('/api/v1/limiter/reward', $data);
     }
 
     // Block user
@@ -949,12 +949,12 @@ class RateLimiterClient {
             'duration' => $duration
         ];
 
-        return $this->post('/api/block', $data);
+        return $this->post('/api/v1/limiter/block', $data);
     }
 
     // Get status
     public function getStatus($key) {
-        return $this->get("/api/status/$key");
+        return $this->get("/api/v1/limiter/status/$key");
     }
 
     // POST request helper
@@ -1026,30 +1026,30 @@ class RateLimiterClient
       refillRate: refill_rate
     }
 
-    post('/api/check', data)
+    post('/api/v1/limiter/check', data)
   end
 
   # Apply penalty
   def self.apply_penalty(key, points: 5)
     data = { key: key, points: points }
-    post('/api/penalty', data)
+    post('/api/v1/limiter/penalty', data)
   end
 
   # Apply reward
   def self.apply_reward(key, points: 3)
     data = { key: key, points: points }
-    post('/api/reward', data)
+    post('/api/v1/limiter/reward', data)
   end
 
   # Block user
   def self.block_user(key, duration: 60)
     data = { key: key, duration: duration }
-    post('/api/block', data)
+    post('/api/v1/limiter/block', data)
   end
 
   # Get status
   def self.get_status(key)
-    get("/api/status/#{key}")
+    get("/api/v1/limiter/status/#{key}")
   end
 
   private
@@ -1088,7 +1088,7 @@ puts "Capacity: #{result['capacity']}"</pre>
 
 require 'httparty'
 
-response = HTTParty.post('http://localhost:8080/api/check',
+response = HTTParty.post('http://localhost:8080/api/v1/limiter/check',
   body: {
     key: 'user-123',
     capacity: 10,
@@ -1133,7 +1133,7 @@ public class RateLimiterClient
         var json = JsonSerializer.Serialize(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await client.PostAsync($"{ApiUrl}/api/check", content);
+        var response = await client.PostAsync($"{ApiUrl}/api/v1/limiter/check", content);
         var responseString = await response.Content.ReadAsStringAsync();
         
         return JsonDocument.Parse(responseString);
@@ -1146,7 +1146,7 @@ public class RateLimiterClient
         var json = JsonSerializer.Serialize(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await client.PostAsync($"{ApiUrl}/api/penalty", content);
+        var response = await client.PostAsync($"{ApiUrl}/api/v1/limiter/penalty", content);
         var responseString = await response.Content.ReadAsStringAsync();
         
         return JsonDocument.Parse(responseString);
@@ -1159,7 +1159,7 @@ public class RateLimiterClient
         var json = JsonSerializer.Serialize(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await client.PostAsync($"{ApiUrl}/api/reward", content);
+        var response = await client.PostAsync($"{ApiUrl}/api/v1/limiter/reward", content);
         var responseString = await response.Content.ReadAsStringAsync();
         
         return JsonDocument.Parse(responseString);
@@ -1172,7 +1172,7 @@ public class RateLimiterClient
         var json = JsonSerializer.Serialize(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-        var response = await client.PostAsync($"{ApiUrl}/api/block", content);
+        var response = await client.PostAsync($"{ApiUrl}/api/v1/limiter/block", content);
         var responseString = await response.Content.ReadAsStringAsync();
         
         return JsonDocument.Parse(responseString);
@@ -1181,7 +1181,7 @@ public class RateLimiterClient
     // Get status
     public static async Task&lt;JsonDocument&gt; GetStatusAsync(string key)
     {
-        var response = await client.GetAsync($"{ApiUrl}/api/status/{key}");
+        var response = await client.GetAsync($"{ApiUrl}/api/v1/limiter/status/{key}");
         var responseString = await response.Content.ReadAsStringAsync();
         
         return JsonDocument.Parse(responseString);
@@ -1288,7 +1288,7 @@ public class RateLimiterClient
 
         switch (action) {
           case 'check':
-            response = await fetch(`${apiUrl}/api/check`, {
+            response = await fetch(`${apiUrl}/api/v1/limiter/check`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key: limiterKey, capacity, refillRate })
@@ -1297,7 +1297,7 @@ public class RateLimiterClient
             break;
 
           case 'penalty':
-            response = await fetch(`${apiUrl}/api/penalty`, {
+            response = await fetch(`${apiUrl}/api/v1/limiter/penalty`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key: limiterKey, points: 5 })
@@ -1306,7 +1306,7 @@ public class RateLimiterClient
             break;
 
           case 'reward':
-            response = await fetch(`${apiUrl}/api/reward`, {
+            response = await fetch(`${apiUrl}/api/v1/limiter/reward`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key: limiterKey, points: 3 })
@@ -1315,7 +1315,7 @@ public class RateLimiterClient
             break;
 
           case 'block':
-            response = await fetch(`${apiUrl}/api/block`, {
+            response = await fetch(`${apiUrl}/api/v1/limiter/block`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key: limiterKey, duration: 60 })
@@ -1324,7 +1324,7 @@ public class RateLimiterClient
             break;
 
           case 'status':
-            response = await fetch(`${apiUrl}/api/status/${limiterKey}`);
+            response = await fetch(`${apiUrl}/api/v1/limiter/status/${limiterKey}`);
             data = await response.json();
             break;
 
