@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Comprehensive, well-documented rate limiting algorithms with interactive learning tools",
   "main": "src/index.js",
+  "types": "index.d.ts",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
@@ -30,12 +31,15 @@
     "url": "https://github.com/Maneesh-Relanto/rate-limiter.git"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.9",
     "eslint": "^8.56.0",
     "express": "^5.2.1",
     "ioredis-mock": "^8.13.1",
     "jest": "^29.7.0",
     "prettier": "^3.1.1",
-    "supertest": "^7.2.2"
+    "supertest": "^7.2.2",
+    "typescript": "^5.9.3"
   },
   "jest": {
     "testEnvironment": "node",
