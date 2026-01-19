@@ -32,8 +32,22 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Maneesh-Relanto/rate-limiter.git"
+    "url": "https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm.git"
   },
+  "bugs": {
+    "url": "https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/issues"
+  },
+  "homepage": "https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm#readme",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "src/",
+    "index.d.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
