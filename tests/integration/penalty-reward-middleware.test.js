@@ -205,7 +205,7 @@ describe('Penalty and Reward Middleware Integration', () => {
         refillRate: 1
       }));
       
-      app.post('/login', (req, res, next) => {
+      app.post('/login', (req, res, _next) => {
         if (req.body.password === 'wrong') {
           applyPenalty({ points: 2 })(req, res, () => {
             events.push({ type: 'penalty', tokens: req.penaltyApplied.remainingTokens });

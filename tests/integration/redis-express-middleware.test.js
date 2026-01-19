@@ -273,7 +273,7 @@ describe('Redis Token Bucket Express Middleware', () => {
       const app1 = express();
       const app2 = express();
 
-      const keyGen = (req) => 'shared-key';
+      const keyGen = (_req) => 'shared-key';
 
       app1.use(redisTokenBucketMiddleware({
         redis,
@@ -339,7 +339,7 @@ describe('Redis Token Bucket Express Middleware', () => {
         capacity: 10,
         refillRate: 1,
         prefix: customPrefix,
-        keyGenerator: (req) => 'testkey'
+        keyGenerator: (_req) => 'testkey'
       }));
       
       app.get('/test', (req, res) => res.json({ success: true }));
@@ -933,7 +933,7 @@ describe('Redis Token Bucket Express Middleware', () => {
         redis,
         capacity: 10,
         refillRate: 1,
-        keyGenerator: (req) => {
+        keyGenerator: (_req) => {
           throw new Error('KeyGenerator error');
         }
       }));

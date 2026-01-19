@@ -18,7 +18,7 @@ const ConfigManager = require('../../src/utils/config-manager');
 describe('API Security Tests', () => {
   describe('Input Validation and Sanitization', () => {
     it('should reject invalid key formats', () => {
-      const bucket = new TokenBucket(100, 10);
+      const _bucket = new TokenBucket(100, 10);
       
       // Test various invalid keys
       const invalidKeys = [
@@ -31,10 +31,10 @@ describe('API Security Tests', () => {
         '<script>alert(1)</script>', // XSS attempt
         '${process.env}', // Template injection
         'key;DROP TABLE users', // SQL injection attempt
-        'key\x00null', // Null byte injection
+        'key\x00null' // Null byte injection
       ];
       
-      invalidKeys.forEach(key => {
+      invalidKeys.forEach(_key => {
         expect(() => new TokenBucket(100, 10)).not.toThrow();
         // Keys are used as identifiers, they should be stored safely
       });
@@ -125,7 +125,7 @@ describe('API Security Tests', () => {
         get: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
         set: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
         del: jest.fn().mockRejectedValue(new Error('Redis unavailable')),
-        disconnect: jest.fn(),
+        disconnect: jest.fn()
       };
     });
 
@@ -139,14 +139,14 @@ describe('API Security Tests', () => {
         'key\nFLUSHDB', // Newline injection
         'key\rDEL *', // Carriage return injection
         '"key" "value" SET another_key', // Quote injection
-        'key/**/EVAL', // Comment injection
+        'key/**/EVAL' // Comment injection
       ];
 
       for (const key of maliciousKeys) {
         const bucket = new RedisTokenBucket(redis, key, 100, 10);
         
         // Should not execute injected commands
-        const allowed = await bucket.allowRequest(1);
+        const _allowed = await bucket.allowRequest(1);
         
         // Due to Redis being unavailable, this tests that the key is properly escaped
         expect(redis.eval).toHaveBeenCalled();
@@ -177,7 +177,7 @@ describe('API Security Tests', () => {
         'key*with*stars',
         'key?with?questions',
         'key[with]brackets',
-        'key{with}braces',
+        'key{with}braces'
       ];
 
       for (const key of specialKeys) {
@@ -197,7 +197,7 @@ describe('API Security Tests', () => {
         '..\\..\\..\\windows\\system32\\config\\sam',
         '/etc/shadow',
         'C:\\Windows\\System32\\config\\SAM',
-        'file:///etc/passwd',
+        'file:///etc/passwd'
       ];
 
       maliciousPaths.forEach(path => {
@@ -209,7 +209,7 @@ describe('API Security Tests', () => {
 
     it('should validate JSON configuration structure', () => {
       // ConfigManager should validate the structure
-      const validConfig = {
+      const _validConfig = {
         rateLimits: {
           default: { capacity: 100, refillRate: 10 }
         }
@@ -223,10 +223,10 @@ describe('API Security Tests', () => {
     });
 
     it('should prevent code execution via malicious config', () => {
-      const maliciousConfig = {
+      const _maliciousConfig = {
         rateLimits: {
           default: {
-            capacity: "require('child_process').exec('rm -rf /')",
+            capacity: 'require(\'child_process\').exec(\'rm -rf /\')',
             refillRate: 10
           }
         }
@@ -334,7 +334,7 @@ describe('API Security Tests', () => {
     beforeEach(() => {
       redis = {
         eval: jest.fn().mockRejectedValue(new Error('Connection refused: Internal server details at /etc/redis/redis.conf')),
-        disconnect: jest.fn(),
+        disconnect: jest.fn()
       };
     });
 
@@ -374,7 +374,7 @@ describe('API Security Tests', () => {
         insuranceRefillRate: 5
       });
 
-      let errorMessages = [];
+      const errorMessages = [];
       bucket.on('redisError', (event) => {
         errorMessages.push(event.error);
       });

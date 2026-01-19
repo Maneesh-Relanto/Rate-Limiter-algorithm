@@ -44,7 +44,7 @@ class MockRedis {
     return [allowed, tokens, now];
   }
 
-  async hmget(key, ...fields) {
+  async hmget(key, ..._fields) {
     if (this.shouldFail) {
       throw new Error('Redis connection error');
     }
@@ -69,7 +69,7 @@ class MockRedis {
     return 'OK';
   }
 
-  async expire(key, ttl) {
+  async expire(_key, _ttl) {
     if (this.shouldFail) {
       throw new Error('Redis connection error');
     }

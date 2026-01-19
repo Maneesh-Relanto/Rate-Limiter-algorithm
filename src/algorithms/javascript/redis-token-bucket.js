@@ -166,12 +166,6 @@ class RedisTokenBucket extends EventEmitter {
       throw new Error('Tokens required must be a positive number');
     }
 
-    // If already in insurance mode, use insurance limiter directly
-    if (this.insuranceActive && this.insuranceLimiter) {
-      const allowed = this.insuranceLimiter.allowRequest(tokensRequired);
-      return allowed;
-    }
-
     try {
       // Check if blocked first
       const blocked = await this.isBlocked();
@@ -1016,11 +1010,6 @@ class RedisTokenBucket extends EventEmitter {
    * }
    */
   async isBlocked() {
-    // If already in insurance mode, use insurance limiter directly
-    if (this.insuranceActive && this.insuranceLimiter) {
-      return this.insuranceLimiter.isBlocked();
-    }
-
     try {
       const blockKey = `${this.key}:block`;
       const blockUntil = await this.redis.get(blockKey);

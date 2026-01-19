@@ -16,9 +16,9 @@ const {
 // Express middleware - Redis Token Bucket
 const {
   redisTokenBucketMiddleware,
-  perUserRateLimit: perUserRateLimitRedis,
-  perIpRateLimit: perIpRateLimitRedis,
-  globalRateLimit: globalRateLimitRedis,
+  perUserRateLimit: _perUserRateLimitRedis,
+  perIpRateLimit: _perIpRateLimitRedis,
+  globalRateLimit: _globalRateLimitRedis,
   redisHealthCheck
 } = require('./middleware/express/redis-token-bucket-middleware');
 

@@ -67,7 +67,7 @@ class MockRedisClient {
     this.data.set(key, state);
   }
 
-  async expire(key, seconds) {
+  async expire(_key, _seconds) {
     // Mock - doesn't actually expire
     return true;
   }

@@ -11,7 +11,7 @@ jest.mock('node:fs', () => ({
 }));
 
 const fs = require('node:fs');
-const path = require('node:path');
+const _path = require('node:path');
 const { ConfigManager, getConfigManager } = require('../../src/utils/config-manager');
 
 describe('ConfigManager', () => {
@@ -584,7 +584,7 @@ describe('ConfigManager', () => {
       jest.resetModules();
       const { getConfigManager: freshGetConfigManager } = require('../../src/utils/config-manager');
       
-      const instance1 = freshGetConfigManager('/path1/config.json');
+      const _instance1 = freshGetConfigManager('/path1/config.json');
       const instance2 = freshGetConfigManager('/path2/config.json');
       
       // Note: Current implementation creates new instance when configPath provided
@@ -1263,7 +1263,7 @@ describe('ConfigManager', () => {
         configManager = new ConfigManager();
         const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         
-        const config = configManager.getRateLimit('api.free.');
+        const _config = configManager.getRateLimit('api.free.');
         // Empty part after dot should cause fallback
         expect(consoleWarnSpy).toHaveBeenCalled();
         
@@ -1274,7 +1274,7 @@ describe('ConfigManager', () => {
         configManager = new ConfigManager();
         const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         
-        const config = configManager.getRateLimit('.api.free');
+        const _config = configManager.getRateLimit('.api.free');
         // Empty part before dot should cause fallback
         expect(consoleWarnSpy).toHaveBeenCalled();
         
@@ -1285,7 +1285,7 @@ describe('ConfigManager', () => {
         configManager = new ConfigManager();
         const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
         
-        const config = configManager.getRateLimit('api..free');
+        const _config = configManager.getRateLimit('api..free');
         // Empty part between dots should cause fallback
         expect(consoleWarnSpy).toHaveBeenCalled();
         

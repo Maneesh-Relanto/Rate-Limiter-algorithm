@@ -150,7 +150,7 @@ describe('Get/Set/Reset Methods - TokenBucket', () => {
       
       // Wait a bit
       const wait = Date.now() + 100;
-      while (Date.now() < wait) {}
+      while (Date.now() < wait) { /* busy wait */ }
       
       bucket.setTokens(50);
       
@@ -217,7 +217,7 @@ describe('Get/Set/Reset Methods - TokenBucket', () => {
       
       // Wait a bit
       const wait = Date.now() + 100;
-      while (Date.now() < wait) {}
+      while (Date.now() < wait) { /* busy wait */ }
       
       bucket.reset();
       
