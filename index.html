@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Production-ready rate limiting library with adaptive penalties, Redis failover, state persistence, and 10 event types. 97.7% test coverage, 892 passing tests.">
+    <meta name="keywords" content="rate limiting, token bucket, API rate limiter, Node.js, Redis, Express middleware, DDoS protection">
+    <meta name="author" content="Rate Limiter Contributors">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://maneesh-relanto.github.io/Rate-Limiter-algorithm/">
+    <meta property="og:title" content="Rate Limiter Algorithm - Production-Ready Rate Limiting">
+    <meta property="og:description" content="Comprehensive rate limiting library with adaptive penalties, Redis failover, and 97.7% test coverage">
+    
+    <title>Rate Limiter Algorithm - Production-Ready Rate Limiting for Node.js</title>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #10b981;
+            --dark: #1e293b;
+            --light: #f1f5f9;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --code-bg: #f8fafc;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: #fff;
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        header p {
+            font-size: 1.25rem;
+            opacity: 0.95;
+            max-width: 800px;
+            margin: 0 auto 2rem;
+        }
+
+        .badges {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.875rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: var(--primary);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Features Section */
+        .section {
+            padding: 4rem 0;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--dark);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--dark);
+        }
+
+        .feature-card p {
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* Quick Start Section */
+        .quick-start {
+            background: var(--light);
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--dark);
+        }
+
+        /* Stats Section */
+        .stats {
+            background: var(--dark);
+            color: white;
+            padding: 3rem 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            text-align: center;
+        }
+
+        .stat-item h3 {
+            font-size: 3rem;
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-item p {
+            opacity: 0.8;
+        }
+
+        /* Documentation Links */
+        .doc-links {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .doc-link {
+            display: block;
+            padding: 1.5rem;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        .doc-link:hover {
+            border-color: var(--primary);
+            background: var(--light);
+        }
+
+        .doc-link h4 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark);
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        footer a {
+            color: var(--secondary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            header p {
+                font-size: 1rem;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Highlight Section */
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 3rem;
+            border-radius: 1rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .highlight-box h3 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-box p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <h1>🚦 Rate Limiter Algorithm</h1>
+        <p>Production-ready rate limiting library with adaptive penalties, Redis failover, state persistence, and comprehensive event system</p>
+        
+        <div class="badges">
+            <span class="badge">✅ 97.7% Test Coverage</span>
+            <span class="badge">🚀 892 Tests Passing</span>
+            <span class="badge">📦 Beta Release</span>
+            <span class="badge">🔒 Zero Security Issues</span>
+            <span class="badge">⚡ Production Ready</span>
+        </div>
+
+        <div class="cta-buttons">
+            <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm" class="btn btn-primary">View on GitHub</a>
+            <a href="https://www.npmjs.com/package/rate-limiter-core" class="btn btn-secondary">View on NPM</a>
+        </div>
+    </header>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>97.7%</h3>
+                    <p>Test Coverage</p>
+                </div>
+                <div class="stat-item">
+                    <h3>892</h3>
+                    <p>Passing Tests</p>
+                </div>
+                <div class="stat-item">
+                    <h3>10</h3>
+                    <p>Event Types</p>
+                </div>
+                <div class="stat-item">
+                    <h3>0</h3>
+                    <p>ESLint Errors</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">🌟 Unique Features</h2>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Adaptive Penalties</h3>
+                    <p>Automatically detect and penalize abusive behavior with dynamic token adjustment. Perfect for spam detection and graduated responses.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎁</div>
+                    <h3>Reward System</h3>
+                    <p>Bonus tokens for quality users and good behavior. Encourage engagement while maintaining security.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🚫</div>
+                    <h3>Block Duration</h3>
+                    <p>Temporary bans with automatic expiry. Ideal for failed login protection and security holds.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Redis Failover</h3>
+                    <p>Insurance limiter automatically falls back to in-memory when Redis fails. Never lose uptime.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💾</div>
+                    <h3>State Persistence</h3>
+                    <p>Save and restore bucket state for crash recovery. Zero downtime during restarts.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📡</div>
+                    <h3>10 Event Types</h3>
+                    <p>Comprehensive event system for monitoring: allowed, rateLimitExceeded, penalty, reward, blocked, unblocked, reset, and more.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Express Middleware</h3>
+                    <p>Drop-in middleware for Express.js with per-IP, per-user, and global rate limiting patterns.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>TypeScript Ready</h3>
+                    <p>Full TypeScript definitions with IntelliSense support. Type-safe event listeners and middleware.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Manual Control</h3>
+                    <p>Direct token manipulation for admin overrides. Get, set, reset, consume, add, and remove tokens programmatically.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Highlight Box -->
+    <div class="container">
+        <div class="highlight-box">
+            <h3>🎮 Try the Interactive Demo</h3>
+            <p>Test all features in action with our comprehensive demo application. See adaptive penalties, block duration, and event streaming in real-time!</p>
+            <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/tree/main/examples/demo-app" class="btn btn-primary" style="margin-top: 1rem;">Launch Demo</a>
+        </div>
+    </div>
+
+    <!-- Quick Start Section -->
+    <section id="quick-start" class="section quick-start">
+        <div class="container">
+            <h2 class="section-title">🚀 Quick Start</h2>
+            
+            <h3 style="margin-bottom: 1rem;">Installation</h3>
+            <pre><code>npm install rate-limiter-core@beta</code></pre>
+
+            <h3 style="margin: 2rem 0 1rem;">Basic Usage</h3>
+            <pre><code>const { TokenBucket } = require('rate-limiter-core');
+
+// Create a rate limiter: 100 requests, refill 10 per second
+const bucket = new TokenBucket(100, 10);
+
+// Check if request is allowed
+if (bucket.allowRequest()) {
+  console.log('Request allowed!');
+} else {
+  console.log('Rate limit exceeded');
+}</code></pre>
+
+            <h3 style="margin: 2rem 0 1rem;">Express Middleware</h3>
+            <pre><code>const express = require('express');
+const { perIpRateLimit } = require('rate-limiter-core');
+
+const app = express();
+
+// Apply rate limiting to all routes
+app.use(perIpRateLimit({
+  capacity: 100,
+  refillRate: 10
+}));
+
+app.get('/api/data', (req, res) => {
+  res.json({ message: 'Success!' });
+});</code></pre>
+
+            <h3 style="margin: 2rem 0 1rem;">Adaptive Penalties</h3>
+            <pre><code>// Detect spam and apply penalty
+if (isSpam(message)) {
+  bucket.penalty(5); // Remove 5 tokens
+}
+
+// Reward quality content
+if (isQuality(message)) {
+  bucket.reward(2); // Add 2 bonus tokens
+}</code></pre>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section class="section">
+        <div class="container">
+            <h2 class="section-title">📚 Documentation</h2>
+            
+            <div class="doc-links">
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/docs/API_REFERENCE.md" class="doc-link">
+                    <h4>📖 API Reference</h4>
+                    <p>Complete API documentation for all classes and methods</p>
+                </a>
+                
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/docs/EXPRESS_MIDDLEWARE_GUIDE.md" class="doc-link">
+                    <h4>⚡ Express Guide</h4>
+                    <p>Express.js middleware integration and examples</p>
+                </a>
+                
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/docs/guides/REDIS_DISTRIBUTED.md" class="doc-link">
+                    <h4>🔄 Redis Setup</h4>
+                    <p>Distributed rate limiting with Redis</p>
+                </a>
+                
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/docs/BEST_PRACTICES.md" class="doc-link">
+                    <h4>✅ Best Practices</h4>
+                    <p>Production deployment guide and optimization tips</p>
+                </a>
+                
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/docs/STATE_PERSISTENCE.md" class="doc-link">
+                    <h4>💾 State Persistence</h4>
+                    <p>Save/restore limiter state for crash recovery</p>
+                </a>
+                
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/CHANGELOG.md" class="doc-link">
+                    <h4>📋 Changelog</h4>
+                    <p>Release notes and version history</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why Section -->
+    <section class="section" style="background: var(--light);">
+        <div class="container">
+            <h2 class="section-title">💡 Why Rate Limiting?</h2>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>🛡️ Prevent Abuse</h3>
+                    <p>Protect your API from spam, scrapers, and DDoS attacks. Maintain service quality for legitimate users.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>💰 Control Costs</h3>
+                    <p>Manage API costs and prevent bill shock. Essential for cloud services with usage-based pricing.</p>
+                </div>
+
+                <div class="feature-card">
+                    <h3>⚡ Ensure Performance</h3>
+                    <p>Prevent system overload and maintain response times. Fair resource distribution across all users.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Community Section -->
+    <section class="section">
+        <div class="container" style="text-align: center;">
+            <h2 class="section-title">🤝 Join the Community</h2>
+            <p style="max-width: 600px; margin: 0 auto 2rem; color: var(--text-light);">
+                We welcome contributions! Report issues, submit pull requests, or join discussions on GitHub.
+            </p>
+            
+            <div class="cta-buttons">
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/issues" class="btn btn-primary">Report Issue</a>
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/CONTRIBUTING.md" class="btn btn-secondary">Contributing Guide</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>Built with ❤️ for the open-source community</p>
+            <p style="margin-top: 1rem;">
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm">GitHub</a> • 
+                <a href="https://www.npmjs.com/package/rate-limiter-core">NPM</a> • 
+                <a href="https://github.com/Maneesh-Relanto/Rate-Limiter-algorithm/blob/main/LICENSE">MIT License</a>
+            </p>
+            <p style="margin-top: 1rem; opacity: 0.7; font-size: 0.875rem;">
+                © 2026 Rate Limiter Contributors
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

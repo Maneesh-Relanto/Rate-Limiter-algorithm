@@ -1,5 +1,5 @@
 {
-  "name": "@rate-limiter/core",
+  "name": "rate-limiter-core",
   "version": "0.2.0-beta",
   "description": "Comprehensive, well-documented rate limiting algorithms with interactive learning tools",
   "main": "src/index.js",
